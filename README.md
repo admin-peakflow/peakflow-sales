@@ -1,125 +1,246 @@
-# grizly.py
+# grizly
 
-Jeden soubor. Grizly analýza: **ARES → web firmy → Claude Code → CSV**.
-Bez `pip install`, bez Dockeru, bez buildu. Python 3.11+ a `claude` v PATH.
+Company lead research for any seller, in any country:
+**public business registry → company website → Claude → CSV.**
 
-## Než začneš utrácet
+Standard library only (Python 3.11+). No `pip install`, no Docker, no build.
+You need `claude` (Claude Code) on PATH and an `ANTHROPIC_API_KEY` for the
+paid step. Everything else is free public data.
+
+```
+pull       registry  ──►  CSV with every company in your segment          free
+import     any CSV   ──►  same CSV format (countries without an adapter)   free
+enrich     website + Claude ──► industry, signals, personalization, contacts  ~$0.02–0.07 / company
+classify   rules from your profile ──► tags, needs, ONE offer, score 0–100  free
+```
+
+Three pieces, kept apart on purpose:
+
+| Piece | What it holds | Where |
+|---|---|---|
+| **Profile** | everything about ONE seller: offers, thresholds, routing, scoring, website signals, output format, do-not-contact lists | `profiles/<seller>.toml` |
+| **Source** | one public registry turned into canonical rows | `grizly/sources/<cc>_<registry>.py` |
+| **Schema** | the canonical columns every step reads and writes | `grizly/schema.py` |
+
+Running the tool for another company means writing a profile, never editing Python.
+Covering another country means adding one adapter, never touching rules.
+
+---
+
+## Quick start
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
-python3 grizly.py selftest
+python3 grizly.py selftest                      # checks everything, costs nothing
+
+python3 grizly.py pull --region jihomoravsky --limit 100          # default profile
+python3 grizly.py enrich --in grizly.csv --limit 3 --dry-run      # websites only, no model
+python3 grizly.py enrich --in grizly.csv --limit 20               # real run
 ```
 
-`selftest` nic nestojí. Zkontroluje Python, `claude --version`, klíč, ARES,
-HTML parser, pravidla a CSV s diakritikou. Když projde, má smysl pokračovat.
-
-## Tři kroky
+Another seller, another country:
 
 ```bash
-# 1) seznam firem z ARES (zdarma, bez klíče) — vlna 1 = velkoobchod + výroba
-python3 grizly.py pull --kraj jihomoravsky,zlinsky --limit 100 --out grizly.csv
-
-# 2) zkus na 3 firmách, jestli se weby najdou. Model se NEVOLÁ.
-python3 grizly.py enrich --in grizly.csv --limit 3 --dry-run
-
-# 3) ostrý běh
-python3 grizly.py enrich --in grizly.csv --limit 20
+python3 grizly.py pull   --profile example --market no --region oslo --limit 50
+python3 grizly.py enrich --profile example --in grizly.csv --limit 10
 ```
 
-Nebo obojí naráz:
+One company while debugging:
 
 ```bash
-python3 grizly.py all --kraj jihomoravsky --limit 100 --enrich-limit 20
+python3 grizly.py probe --id 25322214 --name "Holík International s.r.o." --city Zlín
 ```
 
-Jedna firma při ladění:
+The default profile is `$GRIZLY_PROFILE`, else `peakflow`.
+
+---
+
+## Registries
 
 ```bash
-python3 grizly.py probe --ico 25322214 --name "Holík International s.r.o." --city Zlín
+python3 grizly.py sources
 ```
 
-## Co skript dělá
+| Source | Country | Free / key | Gives | Revenue |
+|---|---|---|---|---|
+| `cz-ares` | CZ | free, no key | name, CZ-NACE, region, legal form, founded, employee band, officers | estimate (profile) |
+| `no-brreg` | NO | free, no key | name, SN code, county, legal form, founded, **exact employees**, **website**, officers | **published accounts** |
+| `fr-sirene` | FR | free, no key | name, NAF, region, legal form, founded, employee band, officers, **opt-out flag** | **published (when filed)** |
 
-| Krok | Co | Cena |
-|---|---|---|
-| `pull` | ARES: NACE + právní forma, stránkované po 1 000 | zdarma |
-| | RES: kategorie zaměstnanců | zdarma |
-| | VR: aktivní jednatelé (bez `datumVymazu`) | zdarma |
-| | odhad obratu z počtu lidí, s příznakem | zdarma |
-| | pravidla: tagy, potřeby, jedna linie, skóre 0–100 | zdarma |
-| `enrich` | najdi web → stáhni 6 stránek | zdarma |
-| | `claude -p` se strict JSON schématem | ~$0,02–0,05/firma |
-| | validace proti textu | zdarma |
+Every adapter's verified limits (caps, which filters work, quirks) are in its
+module docstring — read them before changing a query. Examples: ARES matches
+industry codes exactly and ignores the region filter; Brreg matches prefixes;
+SIRENE's region filter matches any branch, not the head office.
 
-## Tři věci, které skript záměrně nedělá
+**Any other country** (or a list from a fair, a CRM export…):
 
-1. **Nedomýšlí si čísla.** Co ARES neví, je prázdné. Odhad obratu má vždy
-   `obrat_odhad_priznak = odhad` a ve skóre dostane poloviční body. Pod 10
-   zaměstnanců se odhad **nedělá** — je moc nejistý a mohl by firmu posunout
-   nad práh, kam nepatří.
+```bash
+python3 grizly.py import --in fair.csv --country DE --map name=Firma --map web=Website
+```
 
-2. **Nevěří modelu.** `personalizace` bez **doslova opsané citace**, která se
-   najde v textu stránky, se zahodí. Telefon a e-mail musí být v textu, jinak
-   se kontakt zahodí. Vymyšlená chvála je horší než prázdné pole — Tomáš by
-   poslal nesmysl a nikdo by si toho nevšiml.
+Rows without a registry id get a stable `x-<domain>` id. Then `enrich` as usual.
 
-3. **Nescrapuje LinkedIn** (podmínky služby, ban účtu) **ani vyhledávače**
-   (DuckDuckGo zablokuje po pár dotazech, Bing vrací odkazy v jiném tvaru).
-   Web se hledá hádáním domény z názvu + ověřením, že je na stránce název
-   firmy. Volitelně přes `SERPER_API_KEY`.
+---
 
-## Výstup
+## Profiles
 
-`grizly.csv` — `;` + UTF-8 BOM, otevírá se v českém Excelu bez importu.
-`contacts-grizly.csv` — max 3 kontakty na firmu, jen zveřejněné.
+A profile is a TOML file. Copy `profiles/example.toml`, then:
 
-Sloupce, které rozhodují:
+```bash
+python3 grizly.py profile --profile acme      # validates + runs its [[examples]]
+```
 
-| Sloupec | Význam |
+| Section | Purpose |
 |---|---|
-| `lead_offer` | `CRM` / `ERP` / `SECOND_BRAIN` / `NONE`. `NONE` = neoslovovat. |
-| `skore` | 0–100, koho volat dřív |
-| `tagy` | vylučovací: `SOFTWARE`, `POD_PRAHEM`, `NAD_STROPEM`, `VEREJNY_SEKTOR`… |
-| `enrich_quality` | 0–1, jak moc je karta vyplněná |
-| `enrich_error` | běh **selhal** (web nenalezen, Claude spadl) |
-| `enrich_warnings` | doběhlo, ale něco se zahodilo (vymyšlená citace…) |
+| `[seller]` | name, website (goes into the crawler's User-Agent), `language` of generated text, `currency` of thresholds, optional `context` for the model |
+| `[output]` | `columns = "en"` (default) or `"cs"` (legacy Czech headers), `delimiter`, `encoding` |
+| `[markets.<key>]` | `source`, `industry_codes` (the registry's own codes), `regions`, `legal_form_classes`, `min_employees`, `language`; `[markets] default = "<key>"` |
+| `[[signals]]` | facts the model extracts from the website: `name`, `type` (boolean/integer/number/string), `description`, `quality` (counts toward `enrich_quality`) |
+| `[estimate]` | revenue per employee by country and industry prefix, used only when no revenue is published; always flagged |
+| `[fx]` | `source = "ecb"` (daily ECB rates, cached) or `"static"` + `rates = { NOK = 11.7 }` (units per EUR) |
+| `[rules]` | `exclude_tags`, `no_offer`, `[[rules.tags]]`, `[[rules.needs]]`, `[[rules.offers]]` (first match wins) |
+| `[scoring]` | `size_points`, `estimate_factor`, `cap`, `[[scoring.points]]` |
+| `[[suppression]]` | do-not-contact CSV (column `company_id` or `ico`) → tag; the tag always excludes |
+| `[[examples]]` | input row + expected decision; run by `profile`, `selftest` and the tests |
 
-`enrich_error` a `enrich_warnings` jsou schválně dva sloupce. Když je sliješ
-do jednoho, ve 100 řádcích nenajdeš skutečnou chybu.
+### Conditions (`when`)
 
-## Náklady a jak je držet
+All fields in one `when` must match (AND). Repeat a rule with the same tag for OR.
+**An unknown value never passes a comparison** — missing data must not qualify
+or disqualify silently. Typos in field or operator names are load errors.
 
-- Strop **$0,15 na firmu** (`--max-budget-usd`), reálně $0,02–0,05.
-- 100 firem ≈ **$2–5**.
-- Cache v `grizly-cache/` — opakovaný běh na stejných datech nestojí nic.
-  `--force` ji obejde.
-- Průběžné ukládání po 10 firmách. Restart o nic nepřijde, hotové se přeskočí.
-- `grizly-cost.jsonl` — po každé firmě řádek s cenou. `tail -5` a víš, kde jsi.
-
-## Časté chyby
-
-| Problém | Řešení |
-|---|---|
-| `claude` není v PATH | `npm i -g @anthropic-ai/claude-code` |
-| `Failed to authenticate` | `ANTHROPIC_API_KEY` chybí nebo je propadlý. OAuth login v kontejneru nefunguje. |
-| `web nenalezen` u půlky firem | Doplň `SERPER_API_KEY` (2 500 dotazů zdarma) nebo doplň `web` do CSV ručně. |
-| Všechno `SECOND_BRAIN` | Chybí `obchodnici_odhad` a `obrat` → CRM/ERP nemůže projít. To je signál, že enrichment neproběhl, ne chyba pravidel. |
-| `Neznámý kraj` | Použij `jihomoravsky`, `zlinsky`, `moravskoslezsky`, `olomoucky`, `vysocina`… |
-
-## Co v tomhle souboru není
-
-- **Účetní závěrky** (Sbírka listin) — jiná, dražší pipeline.
-- **Google Sheets / Raynet** — výstup je CSV.
-- **Plánované běhy** — spouští se ručně nebo z cronu.
-
-## Konfigurace přes prostředí
-
-| Proměnná | Default | Význam |
+| Field kind | Fields | Operators |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | — | povinné pro `enrich` |
-| `SERPER_API_KEY` | — | volitelné, hledání webu přes Google |
-| `GRIZLY_MODEL` | `sonnet` | model pro `claude -p` |
-| `GRIZLY_WORKERS` | `3` | kolik firem paralelně |
-| `GRIZLY_BUDGET` | `0.15` | strop v USD na firmu |
-| `GRIZLY_CACHE` | `grizly-cache` | kde je cache |
-| `GRIZLY_LOG` | `grizly-cost.jsonl` | kam logovat cenu |
+| number | `revenue` (published, else estimate; in profile currency), `revenue_actual`, `employees_min`, `employees_max`, `company_age_years`, `industry_code_count`, integer/number signals | `min`, `max`, `lt`, `gt`, `eq`, `known` |
+| bool | `revenue_is_estimate`, boolean signals | `is`, `known` |
+| text | `country`, `legal_form`, `legal_form_class`, `hq_region_code`, `hq_region`, `hq_city`, `personalization`, `officers`, `web`, `industry`, `lead_offer`, string signals… | `eq`, `in`, `present`, `known`, `prefix` |
+| list | `industry_codes`, `registry_flags`, `tags`, `needs` | `any`, `none`, `prefix`, `present` |
+
+`legal_form_class` is the same everywhere: `company`, `sole_trader`, `partnership`,
+`cooperative`, `public`, `nonprofit`, `other`. Regions are ISO 3166-2 (`CZ-64`,
+`NO-03`, `FR-IDF`). Industry `prefix` ignores dots and letters, so `["62"]`
+matches `62100`, `62.010` and `62.01Z`.
+
+```toml
+[[rules.tags]]
+tag = "TOO_SMALL"
+when = { revenue = { known = false }, employees_max = { gt = 0, max = 5 } }
+
+[[rules.offers]]
+offer = "CRM"
+when = { needs = { any = ["CRM"] } }
+size = { basis = "revenue", min = 10_000_000, max = 1_000_000_000 }
+```
+
+Changed a threshold? `python3 grizly.py classify --in grizly.csv` re-runs the
+rules on the file for free.
+
+---
+
+## What the tool refuses to do
+
+1. **Invent numbers.** What the registry does not say stays empty. The revenue
+   estimate is only made when no figure is published, never below
+   `estimate.min_employees` (a 7-person wholesaler can turn over 30 or 300
+   million), always flagged, and earns only `estimate_factor` of the size points.
+2. **Trust the model.** `personalization` without a **verbatim** quote found in
+   the page text is dropped; the page it came from goes to
+   `personalization_source_url`. Phones and e-mails must appear on the site.
+3. **Accept a namesake website.** Two distinctive name words must appear on a
+   guessed site (one if the name has one) — `happy.cz` is not HAPPY LYFE THERAPEUTICS.
+4. **Contact companies that objected.** A registry opt-out (France:
+   `opposition_diffusion_commerciale`) becomes `DO_NOT_CONTACT` for every profile.
+   Prospecting law differs per country — the profile owner is responsible for the rest.
+5. **Scrape search engines or LinkedIn.** Websites are found by guessing domains
+   and verifying the page (optionally Serper.dev with `SERPER_API_KEY`); robots.txt is respected.
+6. **Mix failure and doubt.** `enrich_error` = the run failed; `enrich_warnings` =
+   finished with reservations. `--dry-run` never sets `enrich_quality`, so a
+   real run does not skip the row.
+
+---
+
+## Output
+
+One row per company, key `(country, company_id)`. Contacts go to
+`contacts-<file>.csv` (max 3 per company, only published ones, appended across runs).
+
+| Column | Meaning |
+|---|---|
+| `company_id`, `country`, `source` | registry id (IČO, org.nr., SIREN…), ISO country, adapter |
+| `industry_codes`, `industry_scheme` | registry codes (`;`-separated) and their scheme |
+| `hq_region_code` | ISO 3166-2 |
+| `revenue`, `revenue_currency`, `revenue_year` | published figure |
+| `revenue_estimate`, `revenue_estimate_flag` | estimate, only without a published figure |
+| `registry_flags` | e.g. `marketing_opt_out` |
+| *signals* | whatever the profile defines |
+| `personalization`, `personalization_source_url` | one sentence + the page it is proven on |
+| `tags`, `needs`, `lead_offer`, `score` | decisions; `lead_offer = NONE` (or the profile's `no_offer`) = do not contact |
+| `enrich_quality`, `enrich_warnings`, `enrich_error`, `enrich_cost_usd` | how the enrichment went |
+
+Files from grizly 1.x (Czech headers, `;`, BOM) are read as they are. A profile
+with `[output] columns = "cs"` writes the legacy headers back.
+
+## Costs
+
+Claude Code runs lean: our instruction is the system prompt, no tools, no MCP
+servers, no skills, no settings or hooks, no CLAUDE.md, no saved session.
+Measured 2026-11-22: fixed overhead ~1 200 tokens instead of ~40 700; a company
+with 6 pages (27 000 chars) costs **~$0.07** on Sonnet, less when pages are short.
+
+- Cap per company `GRIZLY_BUDGET` (default $0.15).
+- Cache in `grizly-cache/`: the same pages and the same question cost nothing.
+  The key includes the profile's prompt, so a changed profile never reuses old answers.
+- `grizly-cost.jsonl`: one line per company with what was spent in that run.
+- Progress is written every 10 companies; a restart resumes from the output file.
+
+## Configuration
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | — | required for `enrich` |
+| `GRIZLY_PROFILE` | `peakflow` | default profile |
+| `SERPER_API_KEY` | — | optional website search |
+| `GRIZLY_MODEL` | `sonnet` | model for `claude -p` |
+| `GRIZLY_WORKERS` | `3` | companies in parallel |
+| `GRIZLY_BUDGET` | `0.15` | USD cap per company |
+| `GRIZLY_CACHE` | `grizly-cache` | cache directory |
+| `GRIZLY_LOG` | `grizly-cost.jsonl` | cost log |
+
+## Adding a country
+
+1. Create `grizly/sources/<cc>_<registry>.py` with a `Source` subclass
+   (`grizly/sources/base.py` is the contract): `regions()`, `search()`,
+   optionally `details()`, `normalize()`, `selftest()`.
+2. **Verify every behaviour against the live API**, not the docs: does the
+   industry filter match exactly or by prefix, does the region filter work,
+   what is the page cap, where are employees, officers, revenue, opt-outs.
+   Write what you found as a table in the module docstring.
+3. Record trimmed responses into `tests/fixtures/` (replace people's names) and
+   write mapping tests in `tests/test_sources.py`.
+4. Add one line to `SOURCES` in `grizly/sources/__init__.py`.
+5. `python3 gate.py` must end with `GATE: PASS`.
+
+Candidates: UK Companies House (free key), Denmark CVR, Finland PRH, Estonia
+e-Business Register, Poland KRS/REGON.
+
+## Development
+
+```bash
+python3 gate.py      # compile, ruff, mypy --strict, unittest, profiles -> GATE: PASS / FAIL
+```
+
+ruff and mypy run through `uvx` when not installed. Tests are offline and free;
+`tests/test_rules.py` proves the PeakFlow profile reproduces grizly 1.x
+decisions on 5 000 random rows (the 1.x code is kept in `tests/legacy_v1_grizly.py`).
+
+## Upgrading from 1.x
+
+- Copy or pull the **whole folder** (`grizly/`, `profiles/`, `grizly.py`), not one file.
+- Old commands keep working: `--kraj`, `--nace` and `--ico` are aliases of
+  `--region`, `--industry` and `--id`.
+- The PeakFlow profile writes the same Czech headers plus new columns
+  (`zeme`, `kraj_kod`, `personalizace_zdroj`, `nace_pocet`, `obrat_mena`, …).
+- The cache key now includes the prompt, so the first run after the upgrade
+  re-asks the model once per company.
+- Stricter than 1.x: a guessed website needs two distinctive name words;
+  phone numbers shorter than 8 digits are dropped instead of kept unverified.

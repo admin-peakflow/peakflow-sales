@@ -1,0 +1,714 @@
+{
+ "pocetCelkem": 246,
+ "ekonomickeSubjekty": [
+  {
+   "ico": "00120928",
+   "obchodniJmeno": "ZS Slatina pod Hazmburkem a.s.",
+   "sidlo": {
+    "kodStatu": "CZ",
+    "nazevStatu": "Česká republika",
+    "kodKraje": 60,
+    "nazevKraje": "Ústecký kraj",
+    "kodOkresu": 3506,
+    "nazevOkresu": "Litoměřice",
+    "kodObce": 565601,
+    "nazevObce": "Slatina",
+    "cisloDomovni": 41,
+    "kodCastiObce": 149641,
+    "nazevCastiObce": "Slatina",
+    "kodAdresnihoMista": 16780833,
+    "psc": 41002,
+    "textovaAdresa": "č.p. 41, 41002 Slatina",
+    "standardizaceAdresy": true,
+    "typCisloDomovni": 1
+   },
+   "pravniForma": "121",
+   "pravniFormaRos": "121",
+   "financniUrad": "198",
+   "datumVzniku": "1971-07-15",
+   "datumAktualizace": "2026-10-17",
+   "dic": "CZ00120928",
+   "icoId": "00120928",
+   "adresaDorucovaci": {
+    "radekAdresy1": "č.p. 41",
+    "radekAdresy2": "41002 Slatina"
+   },
+   "czNace2008": [
+    "011",
+    "431",
+    "46110",
+    "47190",
+    "49410",
+    "69200",
+    "77390"
+   ],
+   "seznamRegistraci": {
+    "stavZdrojeRos": "AKTIVNI",
+    "stavZdrojeVr": "AKTIVNI",
+    "stavZdrojeRes": "AKTIVNI",
+    "stavZdrojeRzp": "AKTIVNI",
+    "stavZdrojeNrpzs": "NEEXISTUJICI",
+    "stavZdrojeRpsh": "NEEXISTUJICI",
+    "stavZdrojeRcns": "NEEXISTUJICI",
+    "stavZdrojeSzr": "AKTIVNI",
+    "stavZdrojeDph": "AKTIVNI",
+    "stavZdrojeSkDph": "NEEXISTUJICI",
+    "stavZdrojeSd": "NEEXISTUJICI",
+    "stavZdrojeIr": "NEEXISTUJICI",
+    "stavZdrojeCeu": "NEEXISTUJICI",
+    "stavZdrojeRs": "NEEXISTUJICI",
+    "stavZdrojeRed": "AKTIVNI",
+    "stavZdrojeMonitor": "NEEXISTUJICI"
+   },
+   "primarniZdroj": "ros",
+   "dalsiUdaje": [
+    {
+     "obchodniJmeno": [
+      {
+       "obchodniJmeno": "ZS Slatina pod Hazmburkem a.s.",
+       "primarniZaznam": true
+      }
+     ],
+     "sidlo": [
+      {
+       "sidlo": {
+        "kodStatu": "CZ",
+        "nazevStatu": "Česká republika",
+        "kodKraje": 60,
+        "nazevKraje": "Ústecký kraj",
+        "kodOkresu": 3506,
+        "nazevOkresu": "Litoměřice",
+        "kodObce": 565601,
+        "nazevObce": "Slatina",
+        "cisloDomovni": 41,
+        "kodCastiObce": 149641,
+        "nazevCastiObce": "Slatina",
+        "kodAdresnihoMista": 16780833,
+        "psc": 41002,
+        "textovaAdresa": "č.p. 41, 41002 Slatina",
+        "standardizaceAdresy": true,
+        "typCisloDomovni": 1
+       },
+       "primarniZaznam": true
+      }
+     ],
+     "pravniForma": "121",
+     "pravniFormaRos": "121",
+     "datovyZdroj": "res"
+    },
+    {
+     "obchodniJmeno": [
+      {
+       "obchodniJmeno": "ZS Slatina pod Hazmburkem a.s.",
+       "primarniZaznam": true
+      }
+     ],
+     "sidlo": [
+      {
+       "sidlo": {
+        "kodStatu": "CZ",
+        "nazevStatu": "Česká republika",
+        "kodKraje": 60,
+        "nazevKraje": "Ústecký kraj",
+        "kodOkresu": 3506,
+        "nazevOkresu": "Litoměřice",
+        "kodObce": 565601,
+        "nazevObce": "Slatina",
+        "cisloDomovni": 41,
+        "kodCastiObce": 149641,
+        "nazevCastiObce": "Slatina",
+        "kodAdresnihoMista": 16780833,
+        "psc": 41002,
+        "textovaAdresa": "č.p. 41, 41002 Slatina",
+        "standardizaceAdresy": true,
+        "typCisloDomovni": 1
+       },
+       "primarniZaznam": true
+      }
+     ],
+     "pravniFormaRos": "121",
+     "datovyZdroj": "ros"
+    },
+    {
+     "obchodniJmeno": [
+      {
+       "obchodniJmeno": "ZS Slatina pod Hazmburkem a.s.",
+       "primarniZaznam": true
+      }
+     ],
+     "sidlo": [
+      {
+       "sidlo": {
+        "kodStatu": "CZ",
+        "nazevStatu": "Česká republika",
+        "kodKraje": 60,
+        "nazevKraje": "Ústecký kraj",
+        "kodOkresu": 3506,
+        "nazevOkresu": "Litoměřice",
+        "kodObce": 565601,
+        "nazevObce": "Slatina",
+        "cisloDomovni": 41,
+        "kodCastiObce": 149641,
+        "nazevCastiObce": "Slatina",
+        "kodAdresnihoMista": 16780833,
+        "psc": 41002,
+        "textovaAdresa": "č.p. 41, 41002 Slatina",
+        "standardizaceAdresy": true,
+        "typCisloDomovni": 1
+       },
+       "primarniZaznam": true
+      }
+     ],
+     "pravniForma": "121",
+     "datovyZdroj": "rzp"
+    },
+    {
+     "obchodniJmeno": [
+      {
+       "obchodniJmeno": "ZS Slatina pod Hazmburkem a.s.",
+       "primarniZaznam": true
+      }
+     ],
+     "sidlo": [
+      {
+       "sidlo": {
+        "kodStatu": "CZ",
+        "nazevStatu": "Česká republika",
+        "kodKraje": 60,
+        "nazevKraje": "Ústecký kraj",
+        "kodOkresu": 3506,
+        "nazevOkresu": "Litoměřice",
+        "kodObce": 565601,
+        "nazevObce": "Slatina",
+        "cisloDomovni": 41,
+        "kodCastiObce": 149641,
+        "nazevCastiObce": "Slatina",
+        "kodAdresnihoMista": 16780833,
+        "psc": 41002,
+        "textovaAdresa": "č.p. 41, 41002 Slatina",
+        "standardizaceAdresy": true,
+        "typCisloDomovni": 1
+       },
+       "primarniZaznam": true
+      }
+     ],
+     "pravniForma": "121",
+     "datovyZdroj": "szr"
+    },
+    {
+     "obchodniJmeno": [
+      {
+       "obchodniJmeno": "ZS Slatina pod Hazmburkem a.s.",
+       "primarniZaznam": true
+      }
+     ],
+     "sidlo": [
+      {
+       "sidlo": {
+        "kodStatu": "CZ",
+        "nazevStatu": "Česká republika",
+        "kodKraje": 60,
+        "nazevKraje": "Ústecký kraj",
+        "kodOkresu": 3506,
+        "nazevOkresu": "Litoměřice",
+        "kodObce": 565601,
+        "nazevObce": "Slatina",
+        "cisloDomovni": 41,
+        "kodCastiObce": 149641,
+        "nazevCastiObce": "Slatina",
+        "kodAdresnihoMista": 16780833,
+        "psc": 41002,
+        "textovaAdresa": "č.p. 41, 41002 Slatina",
+        "standardizaceAdresy": true,
+        "typCisloDomovni": 1
+       },
+       "primarniZaznam": true
+      }
+     ],
+     "pravniForma": "121",
+     "spisovaZnacka": "B 1532/KSUL",
+     "datovyZdroj": "vr"
+    }
+   ],
+   "czNace": [
+    "431",
+    "69200",
+    "49410",
+    "011",
+    "47120",
+    "46110",
+    "77390"
+   ],
+   "subRegistrSzr": "ezp"
+  },
+  {
+   "ico": "01450301",
+   "obchodniJmeno": "SINCHROMI, s.r.o.",
+   "sidlo": {
+    "kodStatu": "CZ",
+    "nazevStatu": "Česká republika",
+    "kodKraje": 124,
+    "nazevKraje": "Olomoucký kraj",
+    "kodOkresu": 3805,
+    "nazevOkresu": "Olomouc",
+    "kodObce": 505501,
+    "nazevObce": "Újezd",
+    "cisloDomovni": 512,
+    "kodCastiObce": 173738,
+    "nazevCastiObce": "Haukovice",
+    "kodAdresnihoMista": 16293011,
+    "psc": 78396,
+    "textovaAdresa": "Haukovice 512, 78396 Újezd",
+    "standardizaceAdresy": true,
+    "typCisloDomovni": 1
+   },
+   "pravniForma": "112",
+   "pravniFormaRos": "112",
+   "financniUrad": "381",
+   "datumVzniku": "2013-03-16",
+   "datumAktualizace": "2026-05-02",
+   "dic": "CZ01450301",
+   "icoId": "01450301",
+   "adresaDorucovaci": {
+    "radekAdresy1": "Haukovice 512",
+    "radekAdresy2": "78396 Újezd"
+   },
+   "czNace2008": [
+    "4611"
+   ],
+   "seznamRegistraci": {
+    "stavZdrojeRos": "AKTIVNI",
+    "stavZdrojeVr": "AKTIVNI",
+    "stavZdrojeRes": "AKTIVNI",
+    "stavZdrojeRzp": "AKTIVNI",
+    "stavZdrojeNrpzs": "NEEXISTUJICI",
+    "stavZdrojeRpsh": "NEEXISTUJICI",
+    "stavZdrojeRcns": "NEEXISTUJICI",
+    "stavZdrojeSzr": "NEEXISTUJICI",
+    "stavZdrojeDph": "AKTIVNI",
+    "stavZdrojeSkDph": "NEEXISTUJICI",
+    "stavZdrojeSd": "NEEXISTUJICI",
+    "stavZdrojeIr": "NEEXISTUJICI",
+    "stavZdrojeCeu": "NEEXISTUJICI",
+    "stavZdrojeRs": "NEEXISTUJICI",
+    "stavZdrojeRed": "NEEXISTUJICI",
+    "stavZdrojeMonitor": "NEEXISTUJICI"
+   },
+   "primarniZdroj": "ros",
+   "dalsiUdaje": [
+    {
+     "obchodniJmeno": [
+      {
+       "obchodniJmeno": "SINCHROMI, s.r.o.",
+       "primarniZaznam": true
+      }
+     ],
+     "sidlo": [
+      {
+       "sidlo": {
+        "kodStatu": "CZ",
+        "nazevStatu": "Česká republika",
+        "kodKraje": 124,
+        "nazevKraje": "Olomoucký kraj",
+        "kodOkresu": 3805,
+        "nazevOkresu": "Olomouc",
+        "kodObce": 505501,
+        "nazevObce": "Újezd",
+        "cisloDomovni": 512,
+        "kodCastiObce": 173738,
+        "nazevCastiObce": "Haukovice",
+        "kodAdresnihoMista": 16293011,
+        "psc": 78396,
+        "textovaAdresa": "Haukovice 512, 78396 Újezd",
+        "standardizaceAdresy": true,
+        "typCisloDomovni": 1
+       },
+       "primarniZaznam": true
+      }
+     ],
+     "pravniForma": "112",
+     "pravniFormaRos": "112",
+     "datovyZdroj": "res"
+    },
+    {
+     "obchodniJmeno": [
+      {
+       "obchodniJmeno": "SINCHROMI, s.r.o.",
+       "primarniZaznam": true
+      }
+     ],
+     "sidlo": [
+      {
+       "sidlo": {
+        "kodStatu": "CZ",
+        "nazevStatu": "Česká republika",
+        "kodKraje": 124,
+        "nazevKraje": "Olomoucký kraj",
+        "kodOkresu": 3805,
+        "nazevOkresu": "Olomouc",
+        "kodObce": 505501,
+        "nazevObce": "Újezd",
+        "cisloDomovni": 512,
+        "kodCastiObce": 173738,
+        "nazevCastiObce": "Haukovice",
+        "kodAdresnihoMista": 16293011,
+        "psc": 78396,
+        "textovaAdresa": "Haukovice 512, 78396 Újezd",
+        "standardizaceAdresy": true,
+        "typCisloDomovni": 1
+       },
+       "primarniZaznam": true
+      }
+     ],
+     "pravniFormaRos": "112",
+     "datovyZdroj": "ros"
+    },
+    {
+     "obchodniJmeno": [
+      {
+       "obchodniJmeno": "SINCHROMI, s.r.o.",
+       "primarniZaznam": true
+      }
+     ],
+     "sidlo": [
+      {
+       "sidlo": {
+        "kodStatu": "CZ",
+        "nazevStatu": "Česká republika",
+        "kodKraje": 124,
+        "nazevKraje": "Olomoucký kraj",
+        "kodOkresu": 3805,
+        "nazevOkresu": "Olomouc",
+        "kodObce": 505501,
+        "nazevObce": "Újezd",
+        "cisloDomovni": 512,
+        "kodCastiObce": 173738,
+        "nazevCastiObce": "Haukovice",
+        "kodAdresnihoMista": 16293011,
+        "psc": 78396,
+        "textovaAdresa": "Haukovice 512, 78396 Újezd",
+        "standardizaceAdresy": true,
+        "typCisloDomovni": 1
+       },
+       "primarniZaznam": true
+      }
+     ],
+     "pravniForma": "112",
+     "datovyZdroj": "rzp"
+    },
+    {
+     "obchodniJmeno": [
+      {
+       "obchodniJmeno": "SINCHROMI, s.r.o.",
+       "primarniZaznam": true
+      }
+     ],
+     "sidlo": [
+      {
+       "sidlo": {
+        "kodStatu": "CZ",
+        "nazevStatu": "Česká republika",
+        "kodKraje": 124,
+        "nazevKraje": "Olomoucký kraj",
+        "kodOkresu": 3805,
+        "nazevOkresu": "Olomouc",
+        "kodObce": 505501,
+        "nazevObce": "Újezd",
+        "cisloDomovni": 512,
+        "kodCastiObce": 173738,
+        "nazevCastiObce": "Haukovice",
+        "kodAdresnihoMista": 16293011,
+        "psc": 78396,
+        "textovaAdresa": "Haukovice 512, 78396 Újezd",
+        "standardizaceAdresy": true,
+        "typCisloDomovni": 1
+       },
+       "primarniZaznam": true
+      }
+     ],
+     "pravniForma": "112",
+     "spisovaZnacka": "C 55865/KSOS",
+     "datovyZdroj": "vr"
+    }
+   ],
+   "czNace": [
+    "46110"
+   ]
+  },
+  {
+   "ico": "01458248",
+   "obchodniJmeno": "MUDr. Radka Lomská, s.r.o.",
+   "sidlo": {
+    "kodStatu": "CZ",
+    "nazevStatu": "Česká republika",
+    "kodKraje": 19,
+    "nazevKraje": "Hlavní město Praha",
+    "kodObce": 554782,
+    "nazevObce": "Praha",
+    "kodSpravnihoObvodu": 35,
+    "nazevSpravnihoObvodu": "Praha 3",
+    "kodMestskehoObvodu": 35,
+    "nazevMestskehoObvodu": "Praha 3",
+    "kodMestskeCastiObvodu": 500097,
+    "kodUlice": 463108,
+    "nazevMestskeCastiObvodu": "Praha 3",
+    "nazevUlice": "Olšanská",
+    "cisloDomovni": 2666,
+    "kodCastiObce": 490261,
+    "cisloOrientacni": 7,
+    "nazevCastiObce": "Žižkov",
+    "kodAdresnihoMista": 21796718,
+    "psc": 13000,
+    "textovaAdresa": "Olšanská 2666/7, Žižkov, 13000 Praha 3",
+    "standardizaceAdresy": true,
+    "typCisloDomovni": 1
+   },
+   "pravniForma": "112",
+   "pravniFormaRos": "112",
+   "financniUrad": "003",
+   "datumVzniku": "2013-03-07",
+   "datumAktualizace": "2026-06-12",
+   "icoId": "01458248",
+   "adresaDorucovaci": {
+    "radekAdresy1": "Olšanská 2666/7",
+    "radekAdresy2": "Žižkov",
+    "radekAdresy3": "13000 Praha 3"
+   },
+   "czNace2008": [
+    "4611",
+    "7022",
+    "86230",
+    "G"
+   ],
+   "seznamRegistraci": {
+    "stavZdrojeRos": "AKTIVNI",
+    "stavZdrojeVr": "AKTIVNI",
+    "stavZdrojeRes": "AKTIVNI",
+    "stavZdrojeRzp": "AKTIVNI",
+    "stavZdrojeNrpzs": "AKTIVNI",
+    "stavZdrojeRpsh": "NEEXISTUJICI",
+    "stavZdrojeRcns": "NEEXISTUJICI",
+    "stavZdrojeSzr": "NEEXISTUJICI",
+    "stavZdrojeDph": "NEEXISTUJICI",
+    "stavZdrojeSkDph": "NEEXISTUJICI",
+    "stavZdrojeSd": "NEEXISTUJICI",
+    "stavZdrojeIr": "NEEXISTUJICI",
+    "stavZdrojeCeu": "NEEXISTUJICI",
+    "stavZdrojeRs": "NEEXISTUJICI",
+    "stavZdrojeRed": "NEEXISTUJICI",
+    "stavZdrojeMonitor": "NEEXISTUJICI"
+   },
+   "primarniZdroj": "ros",
+   "dalsiUdaje": [
+    {
+     "obchodniJmeno": [
+      {
+       "obchodniJmeno": "MUDr. Radka Lomská, s.r.o.",
+       "primarniZaznam": true
+      }
+     ],
+     "sidlo": [
+      {
+       "sidlo": {
+        "kodStatu": "CZ",
+        "nazevStatu": "Česká republika",
+        "kodKraje": 19,
+        "nazevKraje": "Hlavní město Praha",
+        "kodObce": 554782,
+        "nazevObce": "Praha",
+        "kodSpravnihoObvodu": 35,
+        "nazevSpravnihoObvodu": "Praha 3",
+        "kodMestskehoObvodu": 35,
+        "nazevMestskehoObvodu": "Praha 3",
+        "kodMestskeCastiObvodu": 500097,
+        "kodUlice": 463108,
+        "nazevMestskeCastiObvodu": "Praha 3",
+        "nazevUlice": "Olšanská",
+        "cisloDomovni": 2666,
+        "kodCastiObce": 490261,
+        "cisloOrientacni": 7,
+        "nazevCastiObce": "Žižkov",
+        "kodAdresnihoMista": 21796718,
+        "psc": 13000,
+        "textovaAdresa": "Olšanská 2666/7, Žižkov, 13000 Praha 3",
+        "standardizaceAdresy": true,
+        "typCisloDomovni": 1
+       },
+       "primarniZaznam": true
+      }
+     ],
+     "pravniForma": "112",
+     "datovyZdroj": "nrpzs"
+    },
+    {
+     "obchodniJmeno": [
+      {
+       "obchodniJmeno": "MUDr. Radka Lomská, s.r.o.",
+       "primarniZaznam": true
+      }
+     ],
+     "sidlo": [
+      {
+       "sidlo": {
+        "kodStatu": "CZ",
+        "nazevStatu": "Česká republika",
+        "kodKraje": 19,
+        "nazevKraje": "Hlavní město Praha",
+        "kodObce": 554782,
+        "nazevObce": "Praha",
+        "kodSpravnihoObvodu": 35,
+        "nazevSpravnihoObvodu": "Praha 3",
+        "kodMestskehoObvodu": 35,
+        "nazevMestskehoObvodu": "Praha 3",
+        "kodMestskeCastiObvodu": 500097,
+        "kodUlice": 463108,
+        "nazevMestskeCastiObvodu": "Praha 3",
+        "nazevUlice": "Olšanská",
+        "cisloDomovni": 2666,
+        "kodCastiObce": 490261,
+        "cisloOrientacni": 7,
+        "nazevCastiObce": "Žižkov",
+        "kodAdresnihoMista": 21796718,
+        "psc": 13000,
+        "textovaAdresa": "Olšanská 2666/7, Žižkov, 13000 Praha 3",
+        "standardizaceAdresy": true,
+        "typCisloDomovni": 1
+       },
+       "primarniZaznam": true
+      }
+     ],
+     "pravniForma": "112",
+     "pravniFormaRos": "112",
+     "datovyZdroj": "res"
+    },
+    {
+     "obchodniJmeno": [
+      {
+       "obchodniJmeno": "MUDr. Radka Lomská, s.r.o.",
+       "primarniZaznam": true
+      }
+     ],
+     "sidlo": [
+      {
+       "sidlo": {
+        "kodStatu": "CZ",
+        "nazevStatu": "Česká republika",
+        "kodKraje": 19,
+        "nazevKraje": "Hlavní město Praha",
+        "kodObce": 554782,
+        "nazevObce": "Praha",
+        "kodSpravnihoObvodu": 35,
+        "nazevSpravnihoObvodu": "Praha 3",
+        "kodMestskehoObvodu": 35,
+        "nazevMestskehoObvodu": "Praha 3",
+        "kodMestskeCastiObvodu": 500097,
+        "kodUlice": 463108,
+        "nazevMestskeCastiObvodu": "Praha 3",
+        "nazevUlice": "Olšanská",
+        "cisloDomovni": 2666,
+        "kodCastiObce": 490261,
+        "cisloOrientacni": 7,
+        "nazevCastiObce": "Žižkov",
+        "kodAdresnihoMista": 21796718,
+        "psc": 13000,
+        "textovaAdresa": "Olšanská 2666/7, Žižkov, 13000 Praha 3",
+        "standardizaceAdresy": true,
+        "typCisloDomovni": 1
+       },
+       "primarniZaznam": true
+      }
+     ],
+     "pravniFormaRos": "112",
+     "datovyZdroj": "ros"
+    },
+    {
+     "obchodniJmeno": [
+      {
+       "obchodniJmeno": "MUDr. Radka Lomská, s.r.o.",
+       "primarniZaznam": true
+      }
+     ],
+     "sidlo": [
+      {
+       "sidlo": {
+        "kodStatu": "CZ",
+        "nazevStatu": "Česká republika",
+        "kodKraje": 19,
+        "nazevKraje": "Hlavní město Praha",
+        "kodObce": 554782,
+        "nazevObce": "Praha",
+        "kodSpravnihoObvodu": 35,
+        "nazevSpravnihoObvodu": "Praha 3",
+        "kodMestskehoObvodu": 35,
+        "nazevMestskehoObvodu": "Praha 3",
+        "kodMestskeCastiObvodu": 500097,
+        "kodUlice": 463108,
+        "nazevMestskeCastiObvodu": "Praha 3",
+        "nazevUlice": "Olšanská",
+        "cisloDomovni": 2666,
+        "kodCastiObce": 490261,
+        "cisloOrientacni": 7,
+        "nazevCastiObce": "Žižkov",
+        "kodAdresnihoMista": 21796718,
+        "psc": 13000,
+        "textovaAdresa": "Olšanská 2666/7, Žižkov, 13000 Praha 3",
+        "standardizaceAdresy": true,
+        "typCisloDomovni": 1
+       },
+       "primarniZaznam": true
+      }
+     ],
+     "pravniForma": "112",
+     "datovyZdroj": "rzp"
+    },
+    {
+     "obchodniJmeno": [
+      {
+       "obchodniJmeno": "MUDr. Radka Lomská, s.r.o.",
+       "primarniZaznam": true
+      }
+     ],
+     "sidlo": [
+      {
+       "sidlo": {
+        "kodStatu": "CZ",
+        "nazevStatu": "Česká republika",
+        "kodKraje": 19,
+        "nazevKraje": "Hlavní město Praha",
+        "kodObce": 554782,
+        "nazevObce": "Praha",
+        "kodSpravnihoObvodu": 35,
+        "nazevSpravnihoObvodu": "Praha 3",
+        "kodMestskehoObvodu": 35,
+        "nazevMestskehoObvodu": "Praha 3",
+        "kodMestskeCastiObvodu": 500097,
+        "kodUlice": 463108,
+        "nazevMestskeCastiObvodu": "Praha 3",
+        "nazevUlice": "Olšanská",
+        "cisloDomovni": 2666,
+        "kodCastiObce": 490261,
+        "cisloOrientacni": 7,
+        "nazevCastiObce": "Žižkov",
+        "kodAdresnihoMista": 21796718,
+        "psc": 13000,
+        "textovaAdresa": "Olšanská 2666/7, Žižkov, 13000 Praha 3",
+        "standardizaceAdresy": true,
+        "typCisloDomovni": 1
+       },
+       "primarniZaznam": true
+      }
+     ],
+     "pravniForma": "112",
+     "spisovaZnacka": "C 403539/MSPH",
+     "datovyZdroj": "vr"
+    }
+   ],
+   "czNace": [
+    "G",
+    "86230",
+    "70200",
+    "46110"
+   ]
+  }
+ ]
+}

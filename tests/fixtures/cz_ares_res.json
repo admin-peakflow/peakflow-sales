@@ -1,0 +1,67 @@
+{
+ "icoId": "25322214",
+ "zaznamy": [
+  {
+   "ico": "25322214",
+   "obchodniJmeno": "Holík International s.r.o.",
+   "sidlo": {
+    "kodStatu": "CZ",
+    "nazevStatu": "Česká republika",
+    "kodKraje": 141,
+    "nazevKraje": "Zlínský kraj",
+    "kodOkresu": 3705,
+    "nazevOkresu": "Zlín",
+    "kodObce": 585068,
+    "nazevObce": "Zlín",
+    "kodUlice": 691879,
+    "nazevUlice": "Za Dvorem",
+    "cisloDomovni": 612,
+    "kodCastiObce": 70149,
+    "nazevCastiObce": "Štípa",
+    "kodAdresnihoMista": 30789711,
+    "psc": 76314,
+    "textovaAdresa": "Za Dvorem 612, Štípa, 76314 Zlín",
+    "standardizaceAdresy": true,
+    "typCisloDomovni": 1
+   },
+   "pravniForma": "112",
+   "pravniFormaRos": "112",
+   "financniUrad": "303",
+   "datumVzniku": "1996-12-27",
+   "datumAktualizace": "2023-06-29",
+   "czNace": [
+    "68200",
+    "14210",
+    "46110",
+    "72",
+    "1520",
+    "772",
+    "73110",
+    "95230",
+    "32500",
+    "46240"
+   ],
+   "czNace2008": [
+    "14130",
+    "1520",
+    "32500",
+    "46110",
+    "46240",
+    "6820",
+    "72",
+    "73110",
+    "772",
+    "95230"
+   ],
+   "statistickeUdaje": {
+    "institucionalniSektor2010": "11002",
+    "kategoriePoctuPracovniku": "310"
+   },
+   "zakladniUzemniJednotka": "585068",
+   "primarniZaznam": true,
+   "czNacePrevazujici": "32500",
+   "czNacePrevazujici2008": "32500",
+   "okresNutsLau": "CZ0724"
+  }
+ ]
+}

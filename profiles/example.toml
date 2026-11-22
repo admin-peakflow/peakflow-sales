@@ -1,0 +1,164 @@
+# Example seller profile — copy it, rename it, make it yours.
+#
+#   cp profiles/example.toml profiles/acme.toml
+#   python3 grizly.py profile --profile acme        # validate + run examples
+#   python3 grizly.py pull --profile acme --market no --limit 50
+#
+# Imagine a company selling warehouse software to mid-sized distributors in
+# several European countries. Nothing below is PeakFlow-specific.
+
+[seller]
+name = "Acme Warehouse Software"
+website = "https://example.com"
+language = "en"          # language of generated text; markets can override
+currency = "EUR"         # every money threshold below is in EUR
+context = "We sell warehouse management software to distributors with their own stock."
+
+[output]
+columns = "en"           # English snake_case headers (default)
+delimiter = ","
+encoding = "utf-8"
+
+# ---------------------------------------------------------------- markets
+# `source` = registry adapter (`grizly.py sources`). Industry codes are the
+# registry's own codes: exact for ARES and SIRENE, prefixes for Brreg.
+
+[markets]
+default = "no"
+
+[markets.no]
+source = "no-brreg"
+legal_form_classes = ["company"]
+industry_codes = ["46.4", "46.7", "46.9"]   # Brreg matches prefixes
+min_employees = 10
+regions = []
+
+[markets.fr]
+source = "fr-sirene"
+legal_form_classes = ["company"]
+industry_codes = ["46.43Z", "46.47Z", "46.49Z", "46.73A", "46.90Z"]
+min_employees = 10
+language = "fr"          # write personalization in French for French companies
+
+[markets.cz]
+source = "cz-ares"
+legal_form_classes = ["company"]
+industry_codes = ["46490", "46730", "46900"]
+language = "cs"
+
+# ---------------------------------------------------------------- website signals
+
+[[signals]]
+name = "own_warehouse"
+type = "boolean"
+description = "Operates its own warehouse or distribution centre."
+quality = true
+
+[[signals]]
+name = "sku_estimate"
+type = "integer"
+description = "Approximate number of products or SKUs the site shows. Null if not visible."
+quality = true
+
+[[signals]]
+name = "current_wms"
+type = "string"
+description = "Name of the warehouse or ERP system they mention using, if any."
+
+[[signals]]
+name = "hiring_logistics"
+type = "boolean"
+description = "Has an open job ad for warehouse or logistics staff."
+
+# ---------------------------------------------------------------- revenue estimate
+# Only for countries listed here, only when no published revenue exists.
+# Norway and France publish revenue (Brreg accounts, SIRENE finances), so the
+# estimate matters mainly for CZ. Put YOUR figures here — these are placeholders.
+
+[estimate]
+min_employees = 10
+
+[[estimate.revenue_per_employee]]
+country = "CZ"
+currency = "CZK"
+industry_prefixes = ["46"]
+value = 12_000_000
+
+[fx]
+source = "ecb"           # NOK, CZK revenue is converted to EUR for the thresholds
+
+# ---------------------------------------------------------------- rules
+
+[rules]
+exclude_tags = ["SOLE_TRADER", "PUBLIC_SECTOR", "TOO_SMALL", "TOO_LARGE", "CUSTOMER"]
+no_offer = "NONE"
+
+[[rules.tags]]
+tag = "SOLE_TRADER"
+when = { legal_form_class = { in = ["sole_trader"] } }
+
+[[rules.tags]]
+tag = "PUBLIC_SECTOR"
+when = { legal_form_class = { in = ["public", "nonprofit"] } }
+
+[[rules.tags]]
+tag = "TOO_SMALL"
+when = { revenue = { lt = 2_000_000 } }
+
+[[rules.tags]]
+tag = "TOO_LARGE"
+when = { employees_min = { min = 1000 } }
+
+[[rules.needs]]
+need = "WMS"
+when = { own_warehouse = { is = true }, sku_estimate = { min = 500 } }
+
+[[rules.needs]]
+need = "WMS_REPLACE"
+when = { current_wms = { present = true } }
+
+[[rules.offers]]
+offer = "WMS"
+when = { needs = { any = ["WMS"] } }
+size = { basis = "revenue", min = 5_000_000, max = 500_000_000 }
+
+[[rules.offers]]
+offer = "DISCOVERY_CALL"                     # warehouse, size unclear: call first
+when = { own_warehouse = { is = true }, employees_min = { min = 20 } }
+size = { basis = "employees", full_at = 200 }
+
+[scoring]
+size_points = 40
+estimate_factor = 0.5
+cap = 100
+
+[[scoring.points]]
+points = 20
+when = { personalization = { present = true } }
+
+[[scoring.points]]
+points = 15
+when = { hiring_logistics = { is = true } }
+
+[[scoring.points]]
+points = 15
+when = { officers = { present = true } }
+
+[[suppression]]
+file = "customers.csv"
+tag = "CUSTOMER"
+
+[[examples]]
+name = "Norwegian distributor, own warehouse, 2 000 SKUs, 12 M EUR -> WMS"
+row = { company_id = "1", country = "NO", name = "N", employees_min = "45", employees_max = "45", revenue = "12000000", revenue_currency = "EUR", own_warehouse = "yes", sku_estimate = "2000", officers = "Ola Nordmann" }
+expect = { lead_offer = "WMS", needs_include = ["WMS"], score = 55 }
+
+[[examples]]
+name = "warehouse but SKU count unknown -> discovery call"
+row = { company_id = "2", country = "NO", name = "D", employees_min = "60", employees_max = "60", own_warehouse = "yes" }
+expect = { lead_offer = "DISCOVERY_CALL", score = 12 }
+
+[[examples]]
+name = "registry opt-out is always excluded"
+row = { company_id = "3", country = "FR", name = "F", employees_min = "50", employees_max = "99", revenue = "9000000", revenue_currency = "EUR", own_warehouse = "yes", sku_estimate = "900", registry_flags = "marketing_opt_out" }
+expect = { lead_offer = "NONE", tags_include = ["DO_NOT_CONTACT"] }

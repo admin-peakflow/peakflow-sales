@@ -1,0 +1,160 @@
+{
+ "icoId": "25322214",
+ "zaznamy": [
+  {
+   "ico": [
+    {
+     "datumZapisu": "1996-12-27",
+     "hodnota": "25322214"
+    }
+   ],
+   "obchodniJmeno": [
+    {
+     "datumZapisu": "1996-12-27",
+     "datumVymazu": "1999-09-30",
+     "hodnota": "HC trading s.r.o."
+    },
+    {
+     "datumZapisu": "1999-09-30",
+     "datumVymazu": "2002-04-24",
+     "hodnota": "HOLÍK IP s.r.o."
+    },
+    {
+     "datumZapisu": "2002-04-24",
+     "datumVymazu": "2003-06-02",
+     "hodnota": "TAUBERT CZECH s.r.o."
+    },
+    {
+     "datumZapisu": "2003-06-02",
+     "hodnota": "Holík International s.r.o."
+    }
+   ],
+   "statutarniOrgany": [
+    {
+     "datumZapisu": "1996-12-27",
+     "nazevOrganu": "Statutární orgán",
+     "pocetClenu": [
+      {
+       "datumZapisu": "2022-06-13",
+       "pocetClenu": 1
+      }
+     ],
+     "clenoveOrganu": [
+      {
+       "datumZapisu": "1996-12-27",
+       "datumVymazu": "1999-09-03",
+       "typAngazma": "STATUTARNI_ORGAN_CLEN",
+       "clenstvi": {
+        "funkce": {
+         "nazev": "jednatel"
+        }
+       },
+       "nazevAngazma": "Člen statutárního orgánu",
+       "fyzickaOsoba": {
+        "jmeno": "Jan",
+        "prijmeni": "Novák"
+       }
+      },
+      {
+       "datumZapisu": "1996-12-27",
+       "datumVymazu": "2002-04-24",
+       "typAngazma": "STATUTARNI_ORGAN_CLEN",
+       "clenstvi": {
+        "funkce": {
+         "nazev": "jednatel"
+        }
+       },
+       "nazevAngazma": "Člen statutárního orgánu",
+       "fyzickaOsoba": {
+        "jmeno": "Eva",
+        "prijmeni": "Svobodová"
+       }
+      },
+      {
+       "datumZapisu": "2002-04-24",
+       "datumVymazu": "2013-09-04",
+       "typAngazma": "STATUTARNI_ORGAN_CLEN",
+       "clenstvi": {
+        "funkce": {
+         "vznikFunkce": "1996-12-27",
+         "nazev": "jednatel"
+        }
+       },
+       "nazevAngazma": "Člen statutárního orgánu",
+       "fyzickaOsoba": {
+        "jmeno": "Petr",
+        "prijmeni": "Dvořák"
+       }
+      },
+      {
+       "datumZapisu": "2013-09-04",
+       "datumVymazu": "2014-06-09",
+       "typAngazma": "STATUTARNI_ORGAN_CLEN",
+       "clenstvi": {
+        "funkce": {
+         "vznikFunkce": "1996-12-27",
+         "nazev": "jednatel"
+        }
+       },
+       "nazevAngazma": "Člen statutárního orgánu",
+       "fyzickaOsoba": {
+        "jmeno": "Ola",
+        "prijmeni": "Nordmann"
+       }
+      },
+      {
+       "datumZapisu": "2014-06-09",
+       "typAngazma": "STATUTARNI_ORGAN_CLEN",
+       "clenstvi": {
+        "funkce": {
+         "vznikFunkce": "1996-12-27",
+         "nazev": "jednatel"
+        }
+       },
+       "nazevAngazma": "Člen statutárního orgánu",
+       "fyzickaOsoba": {
+        "jmeno": "Kari",
+        "prijmeni": "Hansen"
+       }
+      }
+     ],
+     "typOrganu": "STATUTARNI_ORGAN",
+     "zpusobJednani": [
+      {
+       "datumZapisu": "1996-12-27",
+       "datumVymazu": "2002-04-24",
+       "hodnota": "Způsob zastupování: za společnost jedná a podepisuje kterýkoli\nz jednatelů."
+      },
+      {
+       "datumZapisu": "2002-04-24",
+       "hodnota": "Způsob jednání za společnost: Za společnost jedná a podepisuje\njednatel."
+      }
+     ]
+    },
+    {
+     "datumZapisu": "2019-01-22",
+     "nazevOrganu": "Prokura",
+     "clenoveOrganu": [
+      {
+       "datumZapisu": "2019-01-22",
+       "typAngazma": "PROKURA_OSOBA",
+       "clenstvi": {},
+       "nazevAngazma": "Prokura",
+       "fyzickaOsoba": {
+        "jmeno": "Marie",
+        "prijmeni": "Dupont"
+       }
+      }
+     ],
+     "typOrganu": "PROKURA",
+     "zpusobJednani": [
+      {
+       "datumZapisu": "2019-01-22",
+       "hodnota": "Prokurista je oprávněn jednat jménem korporace ve všech záležitostech vyjma právních úkonů směřujících ke zcizení či zatížení nemovitostí."
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
