@@ -48,6 +48,7 @@ CORE_FACTS: dict[str, str] = {
     "hq_city": "string",
     "source": "string",
     "web": "string",
+    "web_check": "string",           # registry | id | match | manual | ...
     "name": "string",
     "trade_name": "string",
     "industry": "string",

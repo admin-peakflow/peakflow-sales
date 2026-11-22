@@ -14,7 +14,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
-from grizly import VERSION, csvio, llm, rules, sources, web
+from grizly import VERSION, csvio, llm, rules, sources, verify, web
 from grizly.fx import FX
 from grizly.profile import Profile
 from grizly.schema import CONTACT_COLUMNS, company_columns, key
@@ -23,6 +23,11 @@ from grizly.util import fold
 from grizly.validate import sanity_contacts, validate
 
 Log = Callable[[str], None]
+
+
+def echo(msg: str) -> None:
+    """print + flush: progress must reach a log file at once, not at exit."""
+    print(msg, flush=True)
 
 MODEL = os.environ.get("GRIZLY_MODEL", "sonnet")
 WORKERS = int(os.environ.get("GRIZLY_WORKERS", "3"))
@@ -36,7 +41,7 @@ class Context:
     profile: Profile
     cache_dir: Path = CACHE_DIR
     log_file: Path = LOG_FILE
-    log: Log = print
+    log: Log = echo
     fx: FX = field(init=False)
     suppressor: rules.Suppressor = field(init=False)
 
@@ -179,6 +184,9 @@ class EnrichOptions:
     dry_run: bool = False
     budget: float = BUDGET_PER_COMPANY
     workers: int = WORKERS
+    verify_model: str = verify.MODEL
+    verify_budget: float = verify.BUDGET
+    max_candidates: int = 3
 
 
 @dataclass
@@ -200,32 +208,25 @@ def enrich_one(ctx: Context, company: dict[str, str], opt: EnrichOptions) -> Enr
     for col in ("enrich_quality", "enrich_warnings", "enrich_cost_usd"):
         row.setdefault(col, "")
 
-    base = str(company.get("web") or "").strip()
-    if not base and opt.use_search:
-        base = web.find_website(fetcher, str(company.get("name") or ""),
-                                str(company.get("hq_city") or ""), country) or ""
-    if not base:
-        row["enrich_error"] = "website not found"
+    id_label = adapter.id_label if adapter else "id"
+    found = find_verified_site(ctx, row, fetcher, opt, id_label)
+    if found.base is None:
+        row["web"] = ""
+        row["enrich_error"] = found.error
         row["enrich_quality"] = "0.00"
-        return Enriched(row)
-    base = web.normalize_base(base)
+        return Enriched(row, spent_usd=found.spent)
+    base, pages = found.base, found.pages
     row["web"] = base
 
-    pages = web.gather_site(fetcher, base)
-    if not pages:
-        row["enrich_error"] = "website returned no text"
-        row["enrich_quality"] = "0.00"
-        return Enriched(row)
-
     if opt.dry_run:
-        ctx.log(f"    [dry-run] {cid} {base}: {len(pages)} pages, "
+        ctx.log(f"    [dry-run] {cid} {base} [{row['web_check']}]: {len(pages)} pages, "
                 f"{sum(len(t) for t in pages.values())} chars")
         for url, text in pages.items():
             ctx.log(f"      {url} — {len(text)} chars")
         # enrich_quality stays EMPTY on purpose: otherwise the row looks done and
         # the next real run skips it.
         row["enrich_quality"] = ""
-        row["enrich_warnings"] = "dry-run: website found, model not called"
+        row["enrich_warnings"] = f"dry-run: website {row['web_check']}, extraction not called"
         return Enriched(row)
 
     schema = llm.build_schema(ctx.profile)
@@ -240,7 +241,6 @@ def enrich_one(ctx: Context, company: dict[str, str], opt: EnrichOptions) -> Enr
         except (json.JSONDecodeError, KeyError, TypeError):
             res = None  # corrupt cache = no cache
     if res is None:
-        id_label = adapter.id_label if adapter else "id"
         res = llm.call_claude(llm.page_blob(company, pages, id_label), instruction=instruction,
                               schema=schema, model=opt.model, budget=opt.budget)
         # Written on every successful call, --force included; otherwise a forced
@@ -254,7 +254,7 @@ def enrich_one(ctx: Context, company: dict[str, str], opt: EnrichOptions) -> Enr
         row["enrich_error"] = res.error
         row["enrich_quality"] = "0.00"
         log_cost(ctx.log_file, row, res.cost_usd, 0.0, res.error)
-        return Enriched(row, spent_usd=res.cost_usd)
+        return Enriched(row, spent_usd=found.spent + res.cost_usd)
 
     payload = res.payload
     sanity_contacts(payload, pages)
@@ -280,7 +280,74 @@ def enrich_one(ctx: Context, company: dict[str, str], opt: EnrichOptions) -> Enr
             "phone": str(c.get("phone") or ""), "email": str(c.get("email") or ""),
             "source_url": base, "found_on": date.today().isoformat(),
         })
-    return Enriched(row, contacts, spent)
+    return Enriched(row, contacts, found.spent + spent)
+
+
+@dataclass
+class FoundSite:
+    base: str | None
+    pages: dict[str, str] = field(default_factory=dict)
+    error: str = ""
+    spent: float = 0.0
+
+
+def find_verified_site(ctx: Context, row: dict[str, str], fetcher: web.Fetcher,
+                       opt: EnrichOptions, id_label: str) -> FoundSite:
+    """First candidate site that passes the audit (`grizly.verify`). Fills the row's
+    `web_check*` columns. No extraction happens before this says yes."""
+    given = str(row.get("web") or "").strip()
+    prior = str(row.get("web_check") or "")
+    if given:
+        candidates = [web.normalize_base(given)]
+    elif opt.use_search:
+        candidates = web.website_candidates(fetcher, str(row.get("name") or ""),
+                                            str(row.get("hq_city") or ""),
+                                            str(row.get("country") or ""),
+                                            limit=opt.max_candidates)
+    else:
+        candidates = []
+    if not candidates:
+        row["web_check"], row["web_check_evidence"], row["web_check_reason"] = "", "", ""
+        return FoundSite(None, error="website not found")
+
+    rejected: list[str] = []
+    spent = 0.0
+    last = ""
+    for base in candidates:
+        chrome: dict[str, str] = {}
+        pages = web.gather_site(fetcher, base, chrome=chrome)
+        if not pages:
+            rejected.append(f"{base}: no text")
+            continue
+        if given and prior in verify.VERIFIED:
+            check = verify.SiteCheck(prior, row.get("web_check_evidence", ""),
+                                     row.get("web_check_reason", ""))
+        else:
+            check = verify.check_site(
+                row, base, chrome, id_label=id_label,
+                language_name=ctx.profile.language_name(str(row.get("country") or "")),
+                cache_dir=ctx.cache_dir, model=opt.verify_model, budget=opt.verify_budget,
+                use_model=not opt.dry_run)
+            if check.cost_usd and not check.cached:
+                spent += check.cost_usd
+                log_cost(ctx.log_file, row, check.cost_usd, 0.0, f"verify {base}: {check.status}")
+        last = check.status
+        if check.ok or (opt.dry_run and check.status == "pending"):
+            row["web_check"], row["web_check_evidence"] = check.status, check.evidence[:300]
+            row["web_check_reason"] = check.reason[:300]
+            return FoundSite(base, pages, spent=spent)
+        rejected.append(f"{base}: {check.status} — {check.reason}")
+
+    row["web_check"] = last or "no_text"
+    row["web_check_evidence"] = ""
+    row["web_check_reason"] = " | ".join(rejected)[:400]
+    if last == "different_company":
+        error = "website belongs to another company"
+    elif last == "unsure":
+        error = "website not confirmed as the company's"
+    else:
+        error = "website returned no text"
+    return FoundSite(None, error=error, spent=spent)
 
 
 def apply_payload(row: dict[str, str], payload: dict[str, Any], profile: Profile) -> None:
@@ -314,8 +381,11 @@ def enrich(ctx: Context, src: Path, out: Path, opt: EnrichOptions, limit: int) -
             ctx.normalize(r)
         # Failures (quality 0.00) are retried: a missing website is no reason to
         # drop a company for good.
+        # ...and only rows whose website passed the audit count as done. Rows enriched
+        # before the audit existed get audited now (extraction comes from the cache).
         done = {key(r): r for r in done_rows
-                if r.get("company_id") and r.get("enrich_quality") not in (None, "", "0.00")}
+                if r.get("company_id") and r.get("enrich_quality") not in (None, "", "0.00")
+                and r.get("web_check") in verify.VERIFIED}
         if done:
             ctx.log(f"Resuming: {len(done)} companies already enriched.")
 
@@ -358,6 +428,9 @@ def enrich(ctx: Context, src: Path, out: Path, opt: EnrichOptions, limit: int) -
                     f"q={row.get('enrich_quality') or '-':>5} {note[:56]}")
             if i % 10 == 0:
                 _flush(ctx, rows, results, columns, out)
+                if contacts and not opt.dry_run:  # an interrupted run keeps them
+                    _append_contacts(ctx, out.with_name("contacts-" + out.name), contacts)
+                    contacts = []
 
     _flush(ctx, rows, results, columns, out)
     if contacts and not opt.dry_run:

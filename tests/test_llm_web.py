@@ -57,6 +57,12 @@ class Web(unittest.TestCase):
         self.assertEqual(fr[0], "https://singer.fr")
         self.assertEqual(web.tlds_for("PT"), ("pt", "com"))
 
+    def test_national_domain_first_for_every_name_variant(self) -> None:
+        cz = web.candidate_domains("Stavebniny Hudečková s.r.o.", web.tlds_for("CZ"))
+        tlds = [u.rsplit(".", 1)[1] for u in cz]
+        self.assertEqual(tlds, sorted(tlds, key=["cz", "com", "eu"].index))
+        self.assertIn("https://stavebniny-hudeckova.cz", cz[:4])
+
     def test_parked_pages_in_several_languages(self) -> None:
         for text in ("Doména je na prodej", "Domenet er til salgs", "Ce domaine est à vendre"):
             html = f"<html><body><p>Holikstadt {text}</p></body></html>"

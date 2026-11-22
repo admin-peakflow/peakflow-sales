@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 IDENTITY = [
     "company_id", "country", "name", "trade_name", "web",
+    "web_check", "web_check_evidence", "web_check_reason",
     "industry_codes", "industry_primary", "industry_code_count", "industry_scheme", "industry",
     "hq_region", "hq_region_code", "hq_city",
     "legal_form", "legal_form_class", "founded_on", "company_age_years", "officers",
@@ -46,7 +47,9 @@ ESTIMATE_FLAG = "estimate"
 # Legacy Czech headers (grizly 1.x, Gatsby playbook, vault specs).
 CS_COMPANY = {
     "company_id": "ico", "country": "zeme", "name": "nazev", "trade_name": "brand",
-    "web": "web", "industry_codes": "nace", "industry_primary": "nace_hlavni",
+    "web": "web", "web_check": "web_overeni", "web_check_evidence": "web_overeni_dukaz",
+    "web_check_reason": "web_overeni_duvod", "industry_codes": "nace",
+    "industry_primary": "nace_hlavni",
     "industry_code_count": "nace_pocet", "industry_scheme": "nace_system", "industry": "obor",
     "hq_region": "kraj", "hq_region_code": "kraj_kod", "hq_city": "mesto",
     "legal_form": "pravni_forma", "legal_form_class": "pravni_forma_typ",
