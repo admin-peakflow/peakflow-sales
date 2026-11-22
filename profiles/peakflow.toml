@@ -1,0 +1,239 @@
+# PeakFlow — seller profile. Everything PeakFlow-specific lives here, not in Python.
+#
+# Rules mirror the sales process (vault: 10 Sales/(C) Sales proces — ERP, CRM,
+# Second Brain, automatizace, §3). They reproduce grizly 1.x exactly; the test
+# `tests/test_rules.py` proves it against the old code on 5 000 random rows.
+# After 100 calls, change thresholds HERE and run `grizly.py classify`.
+
+[seller]
+name = "PeakFlow"
+website = "https://peakflow.cz"
+language = "cs"          # generated text (industry, description, personalization)
+currency = "CZK"         # every money threshold below is in CZK
+context = ""             # optional: what we sell, given to the model. Empty = 1.x behaviour
+
+[output]
+columns = "cs"           # legacy Czech headers: Gatsby and the vault specs read these
+delimiter = ";"
+encoding = "utf-8-sig"   # BOM: opens in Czech Excel without an import wizard
+
+[markets]
+default = "cz"
+
+# Wave 1: wholesale (46) + manufacturing (22, 25, 28) — §10 of the sales process.
+# ARES matches codes EXACTLY, so these are full CZ-NACE codes, not prefixes.
+[markets.cz]
+source = "cz-ares"
+legal_form_classes = ["company"]      # s.r.o., a.s.
+regions = []                          # empty = whole country; CLI --region overrides
+industry_codes = [
+  "46110", "46120", "46130", "46140", "46150", "46160", "46170", "46180", "46190",
+  "46210", "46220", "46230", "46240",
+  "46310", "46320", "46330", "46340", "46350", "46360", "46370", "46380", "46390",
+  "46410", "46420", "46430", "46440", "46450", "46460", "46470", "46480", "46490",
+  "46500", "46610", "46620", "46630", "46640",
+  "46710", "46720", "46730",
+  "46810", "46820", "46830", "46840", "46850", "46860", "46870", "46890", "46900",
+  "22290", "25610", "25620", "25710", "25990",
+  "28110", "28150", "28410", "28990",
+]
+
+# ---------------------------------------------------------------- website signals
+# Extracted by the model, validated against page text. `quality = true` counts
+# toward enrich_quality. `column_cs` = legacy header.
+
+[[signals]]
+name = "sells_physical_goods"
+type = "boolean"
+description = "Sells physical goods or manufactures."
+quality = true
+column_cs = "fyzicke_zbozi"
+
+[[signals]]
+name = "has_eshop"
+type = "boolean"
+description = "Runs an online shop."
+quality = true
+column_cs = "eshop"
+
+[[signals]]
+name = "sales_people_estimate"
+type = "integer"
+description = "How many people work in sales as visible on the site (team page, regional reps, job ads). Not total headcount."
+quality = true
+column_cs = "obchodnici_odhad"
+
+[[signals]]
+name = "crm_signal"
+type = "boolean"
+description = "Mentions a CRM, or a job ad asks for CRM / Raynet experience."
+column_cs = "crm_signal"
+
+[[signals]]
+name = "has_it_department"
+type = "boolean"
+description = "Has its own IT department (team page, job ads)."
+quality = true
+column_cs = "it_oddeleni"
+
+[[signals]]
+name = "ai_content_flag"
+type = "boolean"
+description = "Publishes content about AI or about how it works internally with AI."
+column_cs = "ai_obsah"
+
+# ---------------------------------------------------------------- revenue estimate
+# Used only when no published revenue exists, always flagged `odhad`.
+# Median revenue per employee in CZ by sector, rounded down. First match wins.
+
+[estimate]
+min_employees = 10       # below this the estimate is too unreliable to use
+
+[[estimate.revenue_per_employee]]
+country = "CZ"
+currency = "CZK"
+industry_prefixes = ["46"]                                   # wholesale
+value = 12_000_000
+
+[[estimate.revenue_per_employee]]
+country = "CZ"
+currency = "CZK"
+industry_prefixes = ["22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33"]
+value = 4_000_000                                            # manufacturing
+
+[[estimate.revenue_per_employee]]
+country = "CZ"
+currency = "CZK"
+value = 2_500_000                                            # everything else
+
+[fx]
+source = "ecb"           # only used if a company reports revenue in another currency
+
+# ---------------------------------------------------------------- rules (§3.1–3.2)
+
+[rules]
+exclude_tags = ["SOFTWARE", "AI_SOFTWARE", "POD_PRAHEM", "NAD_STROPEM", "VEREJNY_SEKTOR",
+                "FYZICKA_OSOBA", "KLIENT", "NEOSLOVOVAT"]
+no_offer = "NONE"
+
+[[rules.tags]]
+tag = "FYZICKA_OSOBA"
+when = { legal_form_class = { in = ["sole_trader"] } }
+
+[[rules.tags]]
+tag = "VEREJNY_SEKTOR"
+when = { legal_form_class = { in = ["public", "nonprofit"] } }
+
+[[rules.tags]]
+tag = "SOFTWARE"
+when = { industry_codes = { prefix = ["62", "631"] } }
+
+[[rules.tags]]
+tag = "POD_PRAHEM"
+when = { revenue = { lt = 10_000_000 } }
+
+[[rules.tags]]
+tag = "POD_PRAHEM"                     # no revenue at all and at most 5 people
+when = { revenue = { known = false }, employees_max = { gt = 0, max = 5 } }
+
+[[rules.tags]]
+tag = "NAD_STROPEM"
+when = { revenue = { gt = 1_000_000_000 } }
+
+[[rules.tags]]
+tag = "NAD_STROPEM"
+when = { employees_min = { min = 250 } }
+
+[[rules.needs]]
+need = "CRM"
+when = { sales_people_estimate = { min = 3 }, revenue = { min = 10_000_000 } }
+
+[[rules.needs]]
+need = "ERP"
+when = { revenue = { min = 30_000_000 }, employees_min = { min = 20 }, sells_physical_goods = { is = true } }
+
+[[rules.needs]]
+need = "SKLAD"
+when = { sells_physical_goods = { is = true } }
+
+[[rules.needs]]
+need = "AI_FIRST"
+when = { company_age_years = { min = 10 }, revenue = { min = 10_000_000, max = 100_000_000 }, has_it_department = { is = false }, ai_content_flag = { is = false } }
+
+# One line per company, first match wins. Excluded companies get `no_offer`.
+[[rules.offers]]
+offer = "ERP"
+when = { needs = { any = ["ERP"] } }
+size = { basis = "revenue", min = 30_000_000, max = 1_000_000_000 }
+
+[[rules.offers]]
+offer = "CRM"
+when = { needs = { any = ["CRM"] } }
+size = { basis = "revenue", min = 10_000_000, max = 1_000_000_000 }
+
+[[rules.offers]]
+offer = "SECOND_BRAIN"
+when = { employees_min = { min = 10 } }
+size = { basis = "employees", full_at = 100 }    # 10–19 people = 3 points, 100+ = 30
+
+# ---------------------------------------------------------------- score (§3.3)
+
+[scoring]
+size_points = 30         # awarded by the offer's `size`
+estimate_factor = 0.5    # an estimated revenue earns half the size points
+cap = 100
+
+[[scoring.points]]
+points = 15
+when = { personalization = { present = true } }
+
+[[scoring.points]]
+points = 15
+when = { officers = { present = true } }
+
+[[scoring.points]]
+points = 10              # Moravia: Vysočina, South Moravia, Olomouc, Moravia-Silesia, Zlín
+when = { hq_region_code = { in = ["CZ-63", "CZ-64", "CZ-71", "CZ-80", "CZ-72"] } }
+
+[[scoring.points]]
+points = 5
+when = { has_it_department = { is = false } }
+
+# ---------------------------------------------------------------- do-not-contact
+# CSV with an `ico` (or `company_id`) column. Missing file = skipped with a note.
+
+[[suppression]]
+file = "neoslovovat.csv"
+tag = "NEOSLOVOVAT"
+
+[[suppression]]
+file = "klienti.csv"
+tag = "KLIENT"
+
+# ---------------------------------------------------------------- examples
+# Run by `grizly.py profile`, `selftest` and the test suite.
+
+[[examples]]
+name = "wholesaler, 40–99 people, estimated revenue, goods, 5 sales people -> ERP"
+row = { company_id = "1", name = "T", industry_codes = "46110", employees_min = "40", employees_max = "99", revenue_estimate = "504000000", revenue_estimate_flag = "estimate", sells_physical_goods = "yes", sales_people_estimate = "5" }
+expect = { lead_offer = "ERP", needs_include = ["ERP", "CRM", "SKLAD"], score = 15 }
+
+[[examples]]
+name = "software company is excluded"
+row = { company_id = "2", name = "S", industry_codes = "62100", employees_min = "25", employees_max = "49", revenue = "80000000" }
+expect = { lead_offer = "NONE", tags_include = ["SOFTWARE"] }
+
+[[examples]]
+name = "CRM: 4 sales people, 20 M published revenue, Zlín"
+row = { company_id = "3", name = "C", industry_codes = "70220", employees_min = "10", employees_max = "19", revenue = "20000000", sales_people_estimate = "4", hq_region_code = "CZ-72", officers = "Jan Novák" }
+expect = { lead_offer = "CRM", score = 55 }
+
+[[examples]]
+name = "no website data, 50–99 people -> SECOND_BRAIN"
+row = { company_id = "4", name = "B", industry_codes = "70220", employees_min = "50", employees_max = "99" }
+expect = { lead_offer = "SECOND_BRAIN", score = 15 }
+
+[[examples]]
+name = "tiny company without revenue is below threshold"
+row = { company_id = "5", name = "M", industry_codes = "46110", employees_min = "1", employees_max = "5" }
+expect = { lead_offer = "NONE", tags_include = ["POD_PRAHEM"] }

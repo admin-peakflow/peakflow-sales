@@ -1,0 +1,30 @@
+[project]
+name = "grizly"
+version = "2.0.0"
+description = "Company lead research: public registry -> website -> Claude -> CSV. Any country, any seller."
+requires-python = ">=3.11"
+dependencies = []          # standard library only — keep it that way
+
+[project.scripts]
+grizly = "grizly.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["grizly", "grizly.sources"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["tests/legacy_v1_grizly.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+ignore = ["RUF001", "RUF002", "RUF003", "SIM108"]   # en dashes and Czech text are intended
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["grizly"]

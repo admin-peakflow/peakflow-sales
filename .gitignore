@@ -1,6 +1,18 @@
+# run output
 grizly-cache/
 grizly-cost.jsonl
 grizly.csv
-contacts-grizly.csv
+contacts-*.csv
 *.tmp
+
+# do-not-contact and client lists hold client data: never commit them
+neoslovovat.csv
+klienti.csv
+customers.csv
+
+# tooling
 __pycache__/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+build/
