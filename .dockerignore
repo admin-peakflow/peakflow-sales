@@ -1,0 +1,28 @@
+# Image = code + profiles only. Data, caches and client lists stay on the volume.
+.git
+.gitignore
+.github
+data
+logs
+grizly-cache
+*.csv
+*.jsonl
+*.tmp
+
+# Development only: gate needs ruff/mypy and the image does not carry them.
+tests
+gate.py
+**/__pycache__
+**/*.pyc
+.mypy_cache
+.ruff_cache
+*.egg-info
+build
+dist
+
+# Docs and local state
+DOCKER.md
+*.log
+.venv
+.DS_Store
+.env

@@ -1,0 +1,45 @@
+# grizly as a one-shot job on a server (Coolify, docker compose, or plain docker).
+#
+#   cp .env.example .env        # fill ANTHROPIC_API_KEY
+#   docker compose run --rm grizly selftest
+#   docker compose run --rm grizly pull --region jihomoravsky --limit 100
+#   docker compose run --rm grizly enrich --in grizly.csv --limit 10 --dry-run
+#   docker compose run --rm grizly enrich --in grizly.csv
+#
+# `run --rm`, not `up`: every command ends, nothing should stay running. The
+# default `up` only runs selftest, so a stray deploy cannot spend money.
+
+services:
+  grizly:
+    build:
+      context: .
+      args:
+        CLAUDE_CODE_VERSION: ${CLAUDE_CODE_VERSION:-2.1.330}
+    image: grizly:2.0
+    # A batch, not a service. Coolify and compose both respect this.
+    restart: "no"
+    init: true
+    environment:
+      # --- needed for enrich (the paid step); pull/classify/import run without ---
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # --- optional ---
+      SERPER_API_KEY: ${SERPER_API_KEY:-}
+      GRIZLY_PROFILE: ${GRIZLY_PROFILE:-peakflow}
+      GRIZLY_MODEL: ${GRIZLY_MODEL:-sonnet}
+      GRIZLY_WORKERS: ${GRIZLY_WORKERS:-3}
+      GRIZLY_BUDGET: ${GRIZLY_BUDGET:-0.15}
+      GRIZLY_VERIFY_MODEL: ${GRIZLY_VERIFY_MODEL:-opus}
+      GRIZLY_VERIFY_BUDGET: ${GRIZLY_VERIFY_BUDGET:-0.30}
+      # Czech dates in enriched_at / found_on
+      TZ: ${TZ:-Europe/Prague}
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
+    volumes:
+      # CSV, contacts, cache, cost log and the suppression lists survive a run.
+      # The entrypoint fixes the owner once; nothing to chown by hand.
+      - ./data:/app/data
+    # No healthcheck: the process is a batch that exits. `selftest` is the check.
+    stop_grace_period: 30s
+    # Batch: grizly writes progress every 10 companies, SIGTERM flushes it.
+    stop_signal: SIGINT
+    # Default = free check. A stray deploy must not start spending money.
+    command: ["selftest", "--offline"]

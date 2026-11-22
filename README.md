@@ -3,9 +3,13 @@
 Company lead research for any seller, in any country:
 **public business registry → company website → Claude → CSV.**
 
-Standard library only (Python 3.11+). No `pip install`, no Docker, no build.
+Standard library only (Python 3.11+). No `pip install`, no build.
 You need `claude` (Claude Code) on PATH and an `ANTHROPIC_API_KEY` for the
 paid step. Everything else is free public data.
+
+Docker is optional and only there for servers where you do not want to install
+Node and Claude Code by hand: `Dockerfile`, `docker-compose.yml` and
+`docker-run.sh` in this folder, described in [DOCKER.md](DOCKER.md).
 
 ```
 pull       registry  ──►  CSV with every company in your segment          free
@@ -232,6 +236,23 @@ python3 gate.py      # compile, ruff, mypy --strict, unittest, profiles -> GATE:
 ruff and mypy run through `uvx` when not installed. Tests are offline and free;
 `tests/test_rules.py` proves the PeakFlow profile reproduces grizly 1.x
 decisions on 5 000 random rows (the 1.x code is kept in `tests/legacy_v1_grizly.py`).
+
+## Docker
+
+For a server where Node and Claude Code should not be installed by hand. Build
+once, then run any command; all state stays in `./data`:
+
+```bash
+cp .env.example .env                       # ANTHROPIC_API_KEY (+ optional SERPER_API_KEY)
+mkdir -p data
+docker compose build
+docker compose run --rm grizly selftest    # free: claude, flags, key, registries
+docker compose run --rm grizly pull --region jihomoravsky --limit 100
+docker compose run --rm grizly enrich --in grizly.csv --limit 10
+```
+
+No compose: `./docker-run.sh enrich --in grizly.csv --limit 10`. Details,
+Coolify setup, cron and troubleshooting: [DOCKER.md](DOCKER.md).
 
 ## Upgrading from 1.x
 
