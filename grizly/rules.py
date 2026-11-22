@@ -100,7 +100,7 @@ def facts(row: dict[str, str], profile: Profile, fx: FX) -> dict[str, Any]:
         "lead_offer": None,
     }
     for name in ("country", "legal_form", "legal_form_class", "hq_region", "hq_region_code",
-                 "hq_city", "source", "web", "name", "trade_name", "industry",
+                 "hq_city", "source", "web", "web_check", "name", "trade_name", "industry",
                  "short_description", "personalization", "officers"):
         v = str(row.get(name) or "").strip()
         f[name] = v or None

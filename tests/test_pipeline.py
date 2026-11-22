@@ -41,14 +41,25 @@ class Pipeline(unittest.TestCase):
                  "revenue": "120000000", "revenue_currency": "NOK"} for i in range(3)]
         csvio.write_rows(self.src, rows, company_columns(self.ctx.profile.signals),
                          self.ctx.profile)
-        self.calls = 0
+        self.calls = 0          # extraction calls
+        self.verify_calls = 0   # site-audit calls
+        self.verdict = {"verdict": "match", "evidence": "Acme Lager AS", "reason": "ok"}
 
-        def fake_claude(*_: Any, **__: Any) -> llm.ClaudeResult:
+        def fake_claude(*_: Any, schema: dict[str, Any], **__: Any) -> llm.ClaudeResult:
+            if "verdict" in schema["properties"]:
+                self.verify_calls += 1
+                return llm.ClaudeResult(payload=dict(self.verdict), cost_usd=0.02)
             self.calls += 1
             return llm.ClaudeResult(payload=json.loads(json.dumps(PAYLOAD)), cost_usd=0.03)
 
+        def fake_gather(_f: Any, base: str, max_pages: int = 6,
+                        chrome: dict[str, str] | None = None) -> dict[str, str]:
+            if chrome is not None:
+                chrome.update(PAGES)
+            return dict(PAGES)
+
         self.ctx.fx.pinned.update({"NOK": 11.0})
-        patches = [mock.patch("grizly.web.gather_site", return_value=PAGES),
+        patches = [mock.patch("grizly.web.gather_site", side_effect=fake_gather),
                    mock.patch("grizly.llm.call_claude", side_effect=fake_claude)]
         for p in patches:
             p.start()
@@ -90,7 +101,9 @@ class Pipeline(unittest.TestCase):
         self.assertEqual(self.calls, 6)
         log = [json.loads(line) for line in
                (self.dir / "cost.jsonl").read_text(encoding="utf-8").splitlines()]
-        self.assertEqual(len(log), 6)
+        extraction = [x for x in log if not str(x["note"] or "").startswith("verify")]
+        self.assertEqual(len(extraction), 6)
+        self.assertEqual(self.verify_calls, 3)  # audits are cached, --force does not redo them
 
     def test_cache_hit_costs_nothing(self) -> None:
         self.run_enrich(limit=1)
@@ -117,11 +130,99 @@ class Pipeline(unittest.TestCase):
         for r in rows:
             r["web"] = ""
         csvio.write_rows(self.src, rows, header, self.ctx.profile)
-        with mock.patch("grizly.web.find_website", return_value=None):
+        with mock.patch("grizly.web.website_candidates", return_value=[]):
             rows = self.run_enrich(limit=1)
         self.assertEqual(rows[0]["enrich_error"], "website not found")
         self.assertEqual(rows[0]["enrich_quality"], "0.00")
         self.assertEqual(rows[0]["enrich_warnings"], "")
+
+
+class SiteAudit(Pipeline):
+    """The site audit runs before extraction; a namesake site never gets extracted."""
+
+    def set_web(self, web: str, check: str = "") -> None:
+        rows, header = csvio.read_rows(self.src, self.ctx.profile)
+        for r in rows:
+            r["web"], r["web_check"] = web, check
+        csvio.write_rows(self.src, rows, csvio.merge_columns(header, ["web_check"]),
+                         self.ctx.profile)
+
+    def test_namesake_site_is_rejected_before_extraction(self) -> None:
+        self.verdict = {"verdict": "different_company", "evidence": "Acme Lager AS",
+                        "reason": "jiná firma, jiné město"}
+        r = self.run_enrich(limit=1)[0]
+        self.assertEqual(self.calls, 0)                      # no extraction spent
+        self.assertEqual(r["enrich_error"], "website belongs to another company")
+        self.assertEqual((r["web"], r["web_check"]), ("", "different_company"))
+        self.assertIn("jiná firma", r["web_check_reason"])
+        self.assertEqual(r["lead_offer"], "NONE")
+
+    def test_match_without_quote_on_page_is_not_trusted(self) -> None:
+        self.verdict = {"verdict": "match", "evidence": "Acme Holding v Brně", "reason": "x"}
+        r = self.run_enrich(limit=1)[0]
+        self.assertEqual(self.calls, 0)
+        self.assertEqual(r["web_check"], "unsure")
+        self.assertEqual(r["enrich_error"], "website not confirmed as the company's")
+
+    def test_match_lets_extraction_run(self) -> None:
+        r = self.run_enrich(limit=1)[0]
+        self.assertEqual((self.verify_calls, self.calls), (1, 1))
+        self.assertEqual(r["web_check"], "match")
+        self.assertEqual(r["web_check_evidence"], "Acme Lager AS")
+
+    def test_company_id_on_page_needs_no_model(self) -> None:
+        PAGES_ID = {"https://acme.no/": PAGES["https://acme.no/"] + " Org.nr. 0 00 000 000"}
+        rows, header = csvio.read_rows(self.src, self.ctx.profile)
+        rows[0]["company_id"] = "000000000"
+        csvio.write_rows(self.src, rows, header, self.ctx.profile)
+
+        def gather(_f: Any, base: str, max_pages: int = 6,
+                   chrome: dict[str, str] | None = None) -> dict[str, str]:
+            if chrome is not None:
+                chrome.update(PAGES_ID)
+            return dict(PAGES)
+
+        with mock.patch("grizly.web.gather_site", side_effect=gather):
+            r = self.run_enrich(limit=1)[0]
+        self.assertEqual(self.verify_calls, 0)
+        self.assertEqual(r["web_check"], "id")
+        self.assertEqual(self.calls, 1)
+
+    def test_registry_website_is_trusted(self) -> None:
+        self.set_web("https://acme.no", "registry")
+        self.run_enrich(limit=1)
+        self.assertEqual((self.verify_calls, self.calls), (0, 1))
+
+    def test_next_candidate_when_first_is_a_namesake(self) -> None:
+        self.set_web("")
+        verdicts = [{"verdict": "different_company", "evidence": None, "reason": "jiná"},
+                    {"verdict": "match", "evidence": "Acme Lager AS", "reason": "ok"}]
+
+        def fake(*_: Any, schema: dict[str, Any], **__: Any) -> llm.ClaudeResult:
+            if "verdict" in schema["properties"]:
+                self.verify_calls += 1
+                return llm.ClaudeResult(payload=verdicts.pop(0), cost_usd=0.02)
+            self.calls += 1
+            return llm.ClaudeResult(payload=json.loads(json.dumps(PAYLOAD)), cost_usd=0.03)
+
+        with mock.patch("grizly.web.website_candidates",
+                        return_value=["https://acme.com", "https://acme.no"]), \
+                mock.patch("grizly.llm.call_claude", side_effect=fake):
+            r = self.run_enrich(limit=1)[0]
+        self.assertEqual(r["web"], "https://acme.no")
+        self.assertEqual(r["web_check"], "match")
+        self.assertEqual(self.calls, 1)
+
+    def test_rows_from_before_the_audit_are_audited_on_resume(self) -> None:
+        self.run_enrich(limit=1)
+        rows, header = csvio.read_rows(self.src, self.ctx.profile)
+        rows[0]["web_check"] = ""   # as if enriched by grizly before the audit existed
+        csvio.write_rows(self.src, rows, header, self.ctx.profile)
+        self.verify_calls = 0
+        with mock.patch("grizly.verify._digest", return_value="fresh"):
+            self.run_enrich(limit=1)
+        self.assertEqual(self.verify_calls, 1)
+        self.assertEqual(self.calls, 1)  # extraction answer came from the cache
 
 
 class Import(unittest.TestCase):

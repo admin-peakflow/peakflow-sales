@@ -88,19 +88,22 @@ class _Text(HTMLParser):
     BLOCK: ClassVar[frozenset[str]] = frozenset(
         {"p", "div", "br", "li", "tr", "h1", "h2", "h3", "h4", "section", "article"})
 
-    def __init__(self) -> None:
+    CHROME: ClassVar[frozenset[str]] = frozenset({"nav", "footer", "header"})
+
+    def __init__(self, keep_chrome: bool = False) -> None:
         super().__init__(convert_charrefs=True)
         self.parts: list[str] = []
         self._skip = 0
+        self.skip = self.SKIP - self.CHROME if keep_chrome else self.SKIP
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if tag in self.SKIP:
+        if tag in self.skip:
             self._skip += 1
         elif tag in self.BLOCK and self._skip == 0:
             self.parts.append("\n")
 
     def handle_endtag(self, tag: str) -> None:
-        if tag in self.SKIP and self._skip:
+        if tag in self.skip and self._skip:
             self._skip -= 1
 
     def handle_data(self, data: str) -> None:
@@ -108,8 +111,10 @@ class _Text(HTMLParser):
             self.parts.append(data)
 
 
-def html_to_text(html: str) -> str:
-    p = _Text()
+def html_to_text(html: str, *, keep_chrome: bool = False) -> str:
+    """Page text. `keep_chrome` keeps header/footer/nav — that is where the company id
+    and address usually are, so the site audit needs them; extraction does not."""
+    p = _Text(keep_chrome)
     with contextlib.suppress(Exception):  # broken HTML is no reason to stop a batch
         p.feed(html)
     raw = "".join(p.parts)
@@ -172,7 +177,9 @@ def candidate_domains(name: str, tlds: tuple[str, ...]) -> list[str]:
     for stem in ("".join(tokens), "-".join(tokens), long_tokens[0], "".join(long_tokens[:2])):
         if stem and len(stem) >= 3 and stem not in stems:
             stems.append(stem)
-    return [f"https://{s}.{tld}" for s in stems for tld in tlds]
+    # National domain first for EVERY name variant, then .com, then .eu: a Czech
+    # firm's own site is far more likely `xyz.cz` than `xyz.com` (often a namesake).
+    return [f"https://{s}.{tld}" for tld in tlds for s in stems]
 
 
 def distinctive_tokens(name: str) -> list[str]:
@@ -212,26 +219,44 @@ def serper(name: str, city: str, country: str, language: str) -> str | None:
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError):
         return None
     tokens = name_tokens(name, 5)
+    hits: list[str] = []
     for item in (data.get("organic") or [])[:8]:
         host = urllib.parse.urlparse(str(item.get("link") or "")).netloc.lower()
         if not host or any(s in host for s in DIRECTORY_HOSTS):
             continue
         if any(t in fold(host.replace("-", "").replace(".", "")) for t in tokens):
-            return f"https://{host}"
-    return None
+            hits.append(host)
+    if not hits:
+        return None
+    national = f".{tlds_for(country)[0]}"
+    hits.sort(key=lambda h: not h.endswith(national))  # stable: national domain first
+    return f"https://{hits[0]}"
+
+
+def website_candidates(fetcher: Fetcher, name: str, city: str, country: str,
+                       limit: int = 3) -> list[str]:
+    """Sites that pass the cheap name check, best first. The audit decides later."""
+    out: list[str] = []
+    found = serper(name, city, country, fetcher.language)
+    if found:
+        out.append(normalize_base(found))
+    for candidate in candidate_domains(name, tlds_for(country))[:12]:
+        if len(out) >= limit:
+            break
+        base = normalize_base(candidate)
+        if base in out:
+            continue
+        html = fetcher.get(candidate, timeout=10)
+        if html and looks_like_company_page(html, name):
+            out.append(base)
+        time.sleep(0.3)
+    return out
 
 
 def find_website(fetcher: Fetcher, name: str, city: str, country: str) -> str | None:
-    """Serper if configured, else verified domain guessing."""
-    found = serper(name, city, country, fetcher.language)
-    if found:
-        return found
-    for candidate in candidate_domains(name, tlds_for(country))[:9]:
-        html = fetcher.get(candidate, timeout=10)
-        if html and looks_like_company_page(html, name):
-            return normalize_base(candidate)
-        time.sleep(0.3)
-    return None
+    """First candidate (no audit). Kept for `probe --dry-run` style quick looks."""
+    found = website_candidates(fetcher, name, city, country, limit=1)
+    return found[0] if found else None
 
 
 def internal_links(base: str, html: str) -> list[str]:
@@ -260,8 +285,12 @@ def internal_links(base: str, html: str) -> list[str]:
     return (hot + [u for u in found if u not in hot])[:20]
 
 
-def gather_site(fetcher: Fetcher, base_url: str, max_pages: int = MAX_PAGES) -> dict[str, str]:
+def gather_site(fetcher: Fetcher, base_url: str, max_pages: int = MAX_PAGES,
+                chrome: dict[str, str] | None = None) -> dict[str, str]:
     """A few pages as {url: text}. Empty = site unreadable.
+
+    `chrome`, if given, receives the same pages WITH header/footer/nav text, for
+    the site audit (company id, address).
 
     Duplicates are dropped: SPAs return the same page on every path, and without
     this the page budget would be spent on one page six times.
@@ -289,6 +318,8 @@ def gather_site(fetcher: Fetcher, base_url: str, max_pages: int = MAX_PAGES) -> 
             return False
         seen.add(digest)
         out[url] = text[:MAX_PAGE_CHARS]
+        if chrome is not None:
+            chrome[url] = html_to_text(html, keep_chrome=True)[:MAX_PAGE_CHARS]
         time.sleep(FETCH_DELAY)
         return True
 

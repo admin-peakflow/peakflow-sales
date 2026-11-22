@@ -1,0 +1,24 @@
+  ! suppression list neoslovovat.csv not found — skipped
+  ! suppression list klienti.csv not found — skipped
+Enriching 40 companies, model sonnet, 3 in parallel
+
+  [1/40] SINCHROMI, s.r.o.                    q= 0.00 website not found
+  [2/40] JPS stavební s.r.o.                  q= 0.86 sales_people_estimate missing
+  [3/40] PETROL ECOLOGY s.r.o.                q= 0.00 website not found
+  [4/40] PROXIMA FINANCE s.r.o.               q= 0.71 sales_people_estimate missing; personalization missing (
+  [5/40] DAKARTO s.r.o.                       q= 0.57 has_eshop missing; sales_people_estimate missing; has_it
+  [6/40] Anabe Services s.r.o.                q= 0.00 website not found
+  [7/40] Hotel U Terezské brány s.r.o.        q= 0.00 website not found
+  [8/40] DISCO PORTO s.r.o.                   q= 0.00 website not found
+  [9/40] MM NEM s.r.o.                        q= 0.00 website not found
+  [10/40] LAVZEN s.r.o.                        q= 0.00 website not found
+contacts -> contacts-grizly.csv (4 total)
+  [11/40] Novotní s.r.o.                       q= 0.00 website not found
+  [12/40] Stavebniny Hudečková s.r.o.          q= 0.00 website not found
+  [13/40] GoMatrix s.r.o.                      q= 0.00 website not found
+  [14/40] HAPPY LYFE THERAPEUTICS s.r.o.       q= 0.00 website not found
+  [15/40] SITMA print s.r.o.                   q= 0.00 website belongs to another company
+  [16/40] KAMÍR a Co spol. s r. o.             q= 0.86 sales_people_estimate missing
+  [17/40] Omya Specialty Materials (Czechia) s q= 0.00 website not found
+  [18/40] Zemo - Profit Mnich a.s.             q= 0.00 website not found
+  [19/40] Zámoraví, a.s.                       q= 0.00 website not found

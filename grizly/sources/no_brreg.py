@@ -134,6 +134,7 @@ class BrregSource(Source):
             "country": self.country,
             "name": str(rec.get("navn") or "").strip(),
             "web": normalize_web(str(rec.get("hjemmeside") or "")),
+            "web_check": "registry" if rec.get("hjemmeside") else "",
             "industry_codes": ";".join(codes),
             "industry_primary": codes[0] if codes else "",
             "industry_code_count": str(len(codes)) if codes else "",
