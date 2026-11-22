@@ -1009,25 +1009,27 @@ def enrich_one(company: dict[str, str], *, model: str, force: bool,
         return row, []
 
     cache = _cache_path(company, pages)
+    res: ClaudeResult | None = None
     if cache.exists() and not force:
         try:
             data = json.loads(cache.read_text(encoding="utf-8"))
             res = ClaudeResult(payload=data["payload"], cost_usd=data.get("cost", 0.0))
-        except (json.JSONDecodeError, KeyError):
-            res = call_claude(company, pages, model=model)
-    else:
+        except (json.JSONDecodeError, KeyError, TypeError):
+            res = None  # poškozená cache = jako by nebyla
+    if res is None:
         res = call_claude(company, pages, model=model)
+        # Zapisujeme VŽDY, i při --force. Dřív se cache při --force
+        # nepřepsala a příští běh by dostal starý výsledek.
+        if not res.error:
+            CACHE_DIR.mkdir(parents=True, exist_ok=True)
+            cache.write_text(json.dumps({"payload": res.payload, "cost": res.cost_usd},
+                                        ensure_ascii=False), encoding="utf-8")
 
     if res.error:
         row["enrich_error"] = res.error
         row["enrich_quality"] = "0.00"
         log_cost(ico, res.cost_usd, 0.0, res.error)
         return row, []
-
-    if not cache.exists():
-        CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        cache.write_text(json.dumps({"payload": res.payload, "cost": res.cost_usd},
-                                    ensure_ascii=False), encoding="utf-8")
 
     payload = res.payload
     sanity_contacts(payload, pages)
