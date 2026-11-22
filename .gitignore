@@ -1,0 +1,6 @@
+grizly-cache/
+grizly-cost.jsonl
+grizly.csv
+contacts-grizly.csv
+*.tmp
+__pycache__/
