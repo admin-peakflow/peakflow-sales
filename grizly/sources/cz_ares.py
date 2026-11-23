@@ -8,8 +8,16 @@ Verified against production (2026-11-22), not taken from docs:
 |                              | `46`). `4611` returns 0. No prefix search.                 |
 | `sidlo.kodKraje` in search   | does NOT filter (returns the national count) -> filter     |
 |                              | on the client                                              |
-| Cap                          | 1 000 results per query, else `VYSTUP_PRILIS_MNOHO_...`;   |
-|                              | `start` pages correctly                                    |
+| Cap                          | 1 000 results per query, else `CHYBA_VSTUPU` "příliš mnoho |
+|                              | výsledků (N)"; `start` pages correctly                     |
+| `financniUrad` in search     | DOES filter (list of 3-digit územní pracoviště codes, e.g. |
+|                              | 289 = Brno II). Codes + parent FÚ (`kodNadrizeny`) from    |
+|                              | `ciselniky-nazevniky` FinancniUrad/ufo. Used to split a    |
+|                              | code over the cap: 46190 = 28 450 nationally, 17–29 per    |
+|                              | Brno ÚP (2026-11-23). Records with no FÚ are not found.    |
+| `sidlo.kodObce` in search    | filters (Brno 46190 = 130); `kodOkresu`, `psc` do not      |
+| Liquidation                  | no field in the record; the law requires the name suffix   |
+|                              | "v likvidaci" -> skipped on the name                       |
 | Several NACE in one query    | counts add up and overflow the cap -> one code per query   |
 | Employee band                | only in `/ekonomicke-subjekty-res/{ico}`, not in search    |
 | Officers                     | `/ekonomicke-subjekty-vr/{ico}`; active = no `datumVymazu` |
@@ -21,13 +29,14 @@ Verified against production (2026-11-22), not taken from docs:
 from __future__ import annotations
 
 import json
+import re
 import time
 from collections.abc import Iterator
 from typing import Any
 
 from grizly.schema import blank_company
 from grizly.sources.base import Log, Query, Source, SourceError, person_name
-from grizly.util import age_years
+from grizly.util import age_years, fold
 
 ARES = "https://ares.gov.cz/ekonomicke-subjekty-v-be/rest"
 DELAY = 0.25
@@ -43,6 +52,18 @@ KRAJE: dict[int, tuple[str, str]] = {
     132: ("CZ-80", "Moravskoslezský kraj"), 141: ("CZ-72", "Zlínský kraj"),
 }
 ISO_BY_NAME = {name: iso for iso, name in KRAJE.values()}
+# Region (ISO) -> Finanční úřad code, parent of the územní pracoviště in `financniUrad`.
+FU_BY_REGION: dict[str, str] = {
+    "CZ-10": "451", "CZ-20": "452", "CZ-31": "453", "CZ-32": "454", "CZ-41": "455",
+    "CZ-42": "456", "CZ-51": "457", "CZ-52": "458", "CZ-53": "459", "CZ-63": "460",
+    "CZ-64": "461", "CZ-71": "462", "CZ-80": "463", "CZ-72": "464",
+}
+TOO_MANY = "příliš mnoho"
+LIQUIDATION = re.compile(r"\bv\s+likvidaci\b")
+
+
+def in_liquidation(name: str) -> bool:
+    return bool(LIQUIDATION.search(fold(name.lower())))
 
 # kategoriePoctuPracovniku (ČSÚ KATPO) -> (min, max); "000" = not stated
 KATPO: dict[str, tuple[int, int | None]] = {
@@ -80,6 +101,8 @@ class AresSource(Source):
     has_details = True
     provides = "name, CZ-NACE, region, legal form, founded, employee band, officers"
 
+    _offices: list[tuple[str, str]] | None = None
+
     def regions(self) -> dict[str, str]:
         return {iso: name for iso, name in KRAJE.values()}
 
@@ -93,28 +116,64 @@ class AresSource(Source):
         forms: list[str] = []
         for cls in q.legal_form_classes:
             forms += QUERY_FORMS.get(cls, [])
+        liquidation = 0
         for code in q.industry_codes:
             try:
                 records = self._search_code(code, forms)
             except SourceError as e:
-                log(f"  ! {code}: {e}")
-                continue
+                if TOO_MANY not in str(e):
+                    log(f"  ! {code}: {e}")
+                    continue
+                records = self._search_split(code, forms, q.regions, log)
             log(f"  {code}: {len(records)} in ARES")
             for rec in records:
                 if rec.get("datumZaniku"):
                     continue  # dissolved
+                if in_liquidation(str(rec.get("obchodniJmeno") or "")):
+                    liquidation += 1
+                    continue
                 kraj = KRAJE.get(int((rec.get("sidlo") or {}).get("kodKraje") or 0))
                 if q.regions and (not kraj or kraj[0] not in q.regions):
                     continue
                 row = self.to_row(rec)
                 if row["company_id"]:
                     yield row
+        if liquidation:
+            log(f"  skipped {liquidation} in liquidation")
 
-    def _search_code(self, code: str, forms: list[str]) -> list[dict[str, Any]]:
+    def tax_offices(self, regions: set[str]) -> list[str]:
+        """Územní pracoviště codes under the regions' Finanční úřad (all if no region)."""
+        if self._offices is None:
+            res = self.http_json(f"{ARES}/ciselniky-nazevniky/vyhledat",
+                                 {"kodCiselniku": "FinancniUrad", "zdrojCiselniku": "ufo"})
+            items = ((res.get("ciselniky") or [{}])[0]).get("polozkyCiselniku") or []
+            self._offices = [(str(i.get("kod")), str(i.get("kodNadrizeny") or ""))
+                             for i in items if not i.get("platnostDo")]
+        parents = {FU_BY_REGION[r] for r in regions if r in FU_BY_REGION}
+        return [k for k, parent in self._offices
+                if parent and parent != "000" and (not parents or parent in parents)]
+
+    def _search_split(self, code: str, forms: list[str], regions: set[str],
+                      log: Log) -> list[dict[str, Any]]:
+        """A code over the 1 000 cap, one query per tax office (see the table)."""
+        offices = self.tax_offices(regions)
+        log(f"  {code}: over the cap, split into {len(offices)} tax-office queries")
+        out: list[dict[str, Any]] = []
+        for fu in offices:
+            try:
+                out += self._search_code(code, forms, {"financniUrad": [fu]})
+            except SourceError as e:
+                log(f"  ! {code} / FÚ {fu}: {e}")
+            time.sleep(DELAY)
+        return out
+
+    def _search_code(self, code: str, forms: list[str],
+                     extra: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
         start = 0
         while True:
-            payload: dict[str, Any] = {"czNace": [code], "pocet": 1000, "start": start}
+            payload: dict[str, Any] = {"czNace": [code], "pocet": 1000, "start": start,
+                                       **(extra or {})}
             if forms:
                 payload["pravniFormaRos"] = forms
             res = self.http_json(f"{ARES}/ekonomicke-subjekty/vyhledat", payload)

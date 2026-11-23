@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import io
 import json
 import unittest
-from unittest import mock
+import urllib.error
 from pathlib import Path
+from unittest import mock
 
 from grizly import llm, web
 from tests.helpers import load_profile
@@ -68,6 +70,27 @@ class Web(unittest.TestCase):
                 mock.patch("urllib.request.urlopen", return_value=resp):
             hits = web.serper("LESA - MH, s.r.o.", "Mutěnice", "CZ", "cs")
         self.assertEqual(hits, ["https://www.lesamh.cz", "https://www.brand-x.cz"])
+
+    def test_serper_strips_quotes_from_key(self) -> None:
+        # `docker run --env-file` keeps quotes: a quoted key got 403 on every query.
+        resp = mock.MagicMock()
+        resp.__enter__.return_value.read.return_value = b'{"organic": []}'
+        with mock.patch.dict("os.environ", {"SERPER_API_KEY": '"abc"'}), \
+                mock.patch("urllib.request.urlopen", return_value=resp) as call:
+            web.serper("LESA - MH, s.r.o.", "", "CZ", "cs")
+        self.assertEqual(call.call_args[0][0].get_header("X-api-key"), "abc")
+
+    def test_serper_http_error_is_reported(self) -> None:
+        err = urllib.error.HTTPError("u", 403, "Forbidden", {}, None)  # type: ignore[arg-type]
+        web._warned.clear()
+        with mock.patch.dict("os.environ", {"SERPER_API_KEY": "k"}), \
+                mock.patch("urllib.request.urlopen", side_effect=err), \
+                mock.patch("sys.stderr", new_callable=io.StringIO) as out:
+            self.assertEqual(web.serper("X s.r.o.", "", "CZ", "cs"), [])
+        self.assertIn("HTTP 403", out.getvalue())
+
+    def test_normalize_base_drops_control_characters(self) -> None:
+        self.assertEqual(web.normalize_base("https://eko\nchem.cz/x "), "https://ekochem.cz")
 
     def test_candidate_domains_per_country(self) -> None:
         cz = web.candidate_domains("Holík International s.r.o.", web.tlds_for("CZ"))

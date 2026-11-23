@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import copy
 import unittest
+import unittest.mock
 
 from grizly.schema import FLAG_OPT_OUT
 from grizly.sources import SOURCES, SourceError, cz_ares, for_country, fr_sirene, get, no_brreg
@@ -43,6 +44,42 @@ class Ares(unittest.TestCase):
         self.assertEqual(row["legal_form_class"], "company")
         self.assertIn("46110", row["industry_codes"].split(";"))
         self.assertEqual(row["source"], "cz-ares")
+
+    def test_liquidation_by_name(self) -> None:
+        self.assertTrue(cz_ares.in_liquidation("Grazioso s.r.o. v likvidaci"))
+        self.assertTrue(cz_ares.in_liquidation("D I N E X  spol.s.r.o., v likvidaci"))
+        self.assertTrue(cz_ares.in_liquidation("SKLOEXPORT akciová společnost V LIKVIDACI"))
+        self.assertFalse(cz_ares.in_liquidation("Likvidace odpadů s.r.o."))
+
+    def test_over_cap_splits_by_tax_office_and_skips_liquidation(self) -> None:
+        base = fixture("cz_ares_search.json")["ekonomickeSubjekty"][0]
+        jm = copy.deepcopy(base)
+        jm["sidlo"]["kodKraje"] = 116
+        gone = copy.deepcopy(jm)
+        gone["ico"], gone["obchodniJmeno"] = "1", "X s.r.o. v likvidaci"
+        offices = {"ciselniky": [{"polozkyCiselniku": [
+            {"kod": "289", "kodNadrizeny": "461"}, {"kod": "309", "kodNadrizeny": "461"},
+            {"kod": "001", "kodNadrizeny": "451"}, {"kod": "461", "kodNadrizeny": "000"}]}]}
+        calls: list[dict[str, object]] = []
+
+        def fake(url: str, payload: dict[str, object] | None = None) -> object:
+            if "ciselniky" in url:
+                return offices
+            assert payload is not None
+            calls.append(payload)
+            if "financniUrad" not in payload:
+                raise SourceError("Zadaný dotaz vrací příliš mnoho výsledků (28 450).")
+            recs = [jm, gone] if payload["financniUrad"] == ["289"] else []
+            return {"ekonomickeSubjekty": recs, "pocetCelkem": len(recs)}
+
+        src = cz_ares.AresSource("ua")
+        log: list[str] = []
+        with unittest.mock.patch.object(src, "http_json", side_effect=fake), \
+                unittest.mock.patch("time.sleep"):
+            rows = list(src.search(cz_ares.Query(["46190"], regions={"CZ-64"}), log.append))
+        self.assertEqual([c.get("financniUrad") for c in calls[1:]], [["289"], ["309"]])
+        self.assertEqual([r["company_id"] for r in rows], [jm["ico"]])
+        self.assertIn("  skipped 1 in liquidation", log)
 
     def test_res_employee_band(self) -> None:
         out = cz_ares.employees_from_res(fixture("cz_ares_res.json"))

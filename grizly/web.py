@@ -14,6 +14,7 @@ import hashlib
 import json
 import os
 import re
+import sys
 import time
 import urllib.error
 import urllib.parse
@@ -69,6 +70,7 @@ DIRECTORY_HOSTS = (
     "finmag.cz", "chytryrejstrik", "fakturujzdarma", "dostartu", "jenprace", "rejstrik",
     "podnikatel.cz", "infobel", "zivefirmy", "najisto", "obchodni-rejstrik", "seznam.cz",
     "hlidacstatu", "detail.cz", "imon.cz", "edb.cz", "merk.cz", "cylex", "zlatestranky",
+    "firmyvdosahu", "expanzo",
 )
 COUNTRY_TLDS: dict[str, tuple[str, ...]] = {
     "CZ": ("cz", "com", "eu"), "SK": ("sk", "com", "eu"), "NO": ("no", "com"),
@@ -159,6 +161,7 @@ class Fetcher:
 
 
 def normalize_base(url: str) -> str:
+    url = re.sub(r"[\x00-\x20\x7f]+", "", url)  # "URL can't contain control characters"
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
     p = urllib.parse.urlparse(url)
@@ -208,10 +211,22 @@ def looks_like_company_page(html: str, name: str) -> bool:
     return sum(t in text for t in tokens) >= min(2, len(tokens))
 
 
+_warned: set[str] = set()
+
+
+def _warn_once(msg: str) -> None:
+    """A dead search key must not look like "no website" on every row."""
+    if msg not in _warned:
+        _warned.add(msg)
+        print(f"  ! {msg}", file=sys.stderr)
+
+
 def serper(name: str, city: str, country: str, language: str) -> list[str]:
     """Optional Google search via Serper.dev (free tier). Needs SERPER_API_KEY.
     Non-directory result sites, name-like domains first."""
-    key = os.environ.get("SERPER_API_KEY")
+    # `docker run --env-file` keeps quotes as part of the value (compose strips
+    # them): a quoted key gets 403 on every query and every site looks "not found".
+    key = (os.environ.get("SERPER_API_KEY") or "").strip().strip("\"'")
     if not key:
         return []
     body = json.dumps({"q": f"{name} {city}".strip(), "gl": country.lower() or "us",
@@ -221,6 +236,10 @@ def serper(name: str, city: str, country: str, language: str) -> list[str]:
     try:
         with urllib.request.urlopen(req, timeout=20) as r:
             data = json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        _warn_once(f"Serper search failed: HTTP {e.code} — check SERPER_API_KEY / credits; "
+                   "falling back to guessed domains")
+        return []
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError):
         return []
     hits: list[str] = []

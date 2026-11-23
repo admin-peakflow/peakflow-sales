@@ -122,6 +122,10 @@ def auth_env(base: dict[str, str] | None = None) -> dict[str, str]:
     otherwise prefer the key and bill the API account instead of the subscription.
     """
     env = dict(os.environ if base is None else base)
+    # `docker run --env-file` keeps quotes around values (compose strips them).
+    for k in ("CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY"):
+        if k in env:
+            env[k] = env[k].strip().strip("\"'")
     if env.get("CLAUDE_CODE_OAUTH_TOKEN"):
         env.pop("ANTHROPIC_API_KEY", None)
     return env
