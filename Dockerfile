@@ -6,8 +6,9 @@
 #   docker build -t grizly:2.0 .
 #   docker run --rm -v "$PWD/data:/app/data" --env-file .env grizly:2.0 selftest
 #
-# Claude Code authenticates with ANTHROPIC_API_KEY inside a container. The OAuth
-# login of a desktop machine does not travel with the image.
+# Claude Code authenticates from the environment: CLAUDE_CODE_OAUTH_TOKEN (a
+# subscription token from `claude setup-token`) or ANTHROPIC_API_KEY. No
+# credential is baked into the image.
 
 FROM node:22-bookworm-slim
 

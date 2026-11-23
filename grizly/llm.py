@@ -114,11 +114,32 @@ class ClaudeResult:
     cached: bool = False  # answer from cache: nothing was spent in this run
 
 
+def auth_env(base: dict[str, str] | None = None) -> dict[str, str]:
+    """Environment for `claude -p` with exactly one credential.
+
+    CLAUDE_CODE_OAUTH_TOKEN (a Claude subscription token from `claude setup-token`)
+    wins when set: ANTHROPIC_API_KEY is removed, because Claude Code would
+    otherwise prefer the key and bill the API account instead of the subscription.
+    """
+    env = dict(os.environ if base is None else base)
+    if env.get("CLAUDE_CODE_OAUTH_TOKEN"):
+        env.pop("ANTHROPIC_API_KEY", None)
+    return env
+
+
+def auth_mode(env: dict[str, str] | None = None) -> str:
+    """'oauth', 'api_key' or '' — which credential `claude -p` will use."""
+    env = auth_env(env)
+    if env.get("CLAUDE_CODE_OAUTH_TOKEN"):
+        return "oauth"
+    return "api_key" if env.get("ANTHROPIC_API_KEY") else ""
+
+
 def claude_bin() -> str:
     found = shutil.which("claude")
     if not found:
         raise RuntimeError("`claude` is not on PATH. Install: npm i -g @anthropic-ai/claude-code "
-                           "and set ANTHROPIC_API_KEY.")
+                           "and set CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY.")
     return found
 
 
@@ -182,7 +203,7 @@ def call_claude(blob: str, *, instruction: str, schema: dict[str, Any], model: s
         "--no-session-persistence",
         "--setting-sources", "",
     ]
-    env = dict(os.environ)
+    env = auth_env()
     env.setdefault("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1")
     try:
         proc = subprocess.run(  # binary from shutil.which, no shell

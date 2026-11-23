@@ -214,12 +214,20 @@ def cmd_selftest(args: argparse.Namespace) -> int:
         return f"{proc.stdout.strip()} ({path})"
 
     def _key() -> str:
-        k = os.environ.get("ANTHROPIC_API_KEY", "")
-        if not k:
-            raise RuntimeError("ANTHROPIC_API_KEY is not set")
-        if not k.startswith("sk-"):
-            raise RuntimeError("ANTHROPIC_API_KEY does not look like a key")
-        return f"set ({k[:7]}…{k[-4:]})"
+        mode = llm.auth_mode()
+        if mode == "oauth":
+            t = os.environ["CLAUDE_CODE_OAUTH_TOKEN"]
+            if not t.startswith("sk-ant-oat"):
+                raise RuntimeError("CLAUDE_CODE_OAUTH_TOKEN does not look like a token "
+                                   "(make one with `claude setup-token`)")
+            note = ", ANTHROPIC_API_KEY ignored" if os.environ.get("ANTHROPIC_API_KEY") else ""
+            return f"OAuth subscription token ({t[:10]}…{t[-4:]}){note}"
+        if mode == "api_key":
+            k = os.environ["ANTHROPIC_API_KEY"]
+            if not k.startswith("sk-"):
+                raise RuntimeError("ANTHROPIC_API_KEY does not look like a key")
+            return f"API key ({k[:7]}…{k[-4:]})"
+        raise RuntimeError("neither CLAUDE_CODE_OAUTH_TOKEN nor ANTHROPIC_API_KEY is set")
 
     def _flags() -> str:
         proc = subprocess.run([llm.claude_bin(), "--help"], capture_output=True, text=True,
@@ -233,7 +241,7 @@ def cmd_selftest(args: argparse.Namespace) -> int:
     if not args.offline:
         check("Claude Code", _claude)
         check("Claude Code flags", _flags)
-        check("API key", _key)
+        check("Claude auth", _key)
         names = split_arg(args.sources) or sorted({m.source for m in p.markets.values()})
         for name in names:
             src = sources.get(name, "grizly-selftest")

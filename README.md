@@ -4,8 +4,9 @@ Company lead research for any seller, in any country:
 **public business registry → company website → Claude → CSV.**
 
 Standard library only (Python 3.11+). No `pip install`, no build.
-You need `claude` (Claude Code) on PATH and an `ANTHROPIC_API_KEY` for the
-paid step. Everything else is free public data.
+You need `claude` (Claude Code) on PATH and either a Claude subscription token
+(`CLAUDE_CODE_OAUTH_TOKEN`, from `claude setup-token`) or an `ANTHROPIC_API_KEY`
+for the paid step. Everything else is free public data.
 
 Docker is optional and only there for servers where you do not want to install
 Node and Claude Code by hand: `Dockerfile`, `docker-compose.yml` and
@@ -34,7 +35,7 @@ Covering another country means adding one adapter, never touching rules.
 ## Quick start
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...
+export CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-...   # or ANTHROPIC_API_KEY=sk-ant-...
 python3 grizly.py selftest                      # checks everything, costs nothing
 
 python3 grizly.py pull --region jihomoravsky --limit 100          # default profile
@@ -201,7 +202,8 @@ with 6 pages (27 000 chars) costs **~$0.07** on Sonnet, less when pages are shor
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | — | required for `enrich` |
+| `CLAUDE_CODE_OAUTH_TOKEN` | — | subscription token for `enrich`; wins over the API key |
+| `ANTHROPIC_API_KEY` | — | API key for `enrich`, if no OAuth token |
 | `GRIZLY_PROFILE` | `peakflow` | default profile |
 | `SERPER_API_KEY` | — | optional website search |
 | `GRIZLY_MODEL` | `sonnet` | model for `claude -p` |

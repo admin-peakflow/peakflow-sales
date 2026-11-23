@@ -1,6 +1,6 @@
 # grizly as a one-shot job on a server (Coolify, docker compose, or plain docker).
 #
-#   cp .env.example .env        # fill ANTHROPIC_API_KEY
+#   cp .env.example .env        # fill CLAUDE_CODE_OAUTH_TOKEN (or ANTHROPIC_API_KEY)
 #   docker compose run --rm grizly selftest
 #   docker compose run --rm grizly pull --region jihomoravsky --limit 100
 #   docker compose run --rm grizly enrich --in grizly.csv --limit 10 --dry-run
@@ -21,6 +21,9 @@ services:
     init: true
     environment:
       # --- needed for enrich (the paid step); pull/classify/import run without ---
+      # One of the two. The OAuth token (Claude subscription, `claude setup-token`)
+      # wins when both are set; the API key is then dropped for `claude -p`.
+      CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       # --- optional ---
       SERPER_API_KEY: ${SERPER_API_KEY:-}

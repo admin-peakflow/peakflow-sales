@@ -37,7 +37,7 @@ data/
 git clone git@github.com-peakflow:admin-peakflow/peakflow-sales.git grizly
 cd grizly
 cp .env.example .env
-nano .env                        # ANTHROPIC_API_KEY=sk-ant-…  (SERPER_API_KEY recommended)
+nano .env                        # CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-… or ANTHROPIC_API_KEY  (SERPER_API_KEY recommended)
 
 mkdir -p data                    # no chown needed: the entrypoint fixes the owner once
 
@@ -74,7 +74,7 @@ continues; `--force` re-does finished rows.
 
 1. **New resource → Docker Compose**, repo `peakflow-sales`, compose file
    `docker-compose.yml`.
-2. **Environment variables:** `ANTHROPIC_API_KEY` (required), `SERPER_API_KEY`,
+2. **Environment variables:** `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY` (one is required), `SERPER_API_KEY`,
    `GRIZLY_WORKERS`, `GRIZLY_BUDGET` — or paste `.env` in one block.
 3. **Persistent storage:** volume `./data → /app/data`.
 4. **Deploy** builds the image and runs the default `selftest --offline`.
@@ -119,7 +119,7 @@ rebuild.
 |---|---|---|
 | `permission denied` writing `grizly.csv` | volume owned by another uid and the container cannot chown it (rootless Docker, NFS) | run the container with `--user 1000:1000` and `sudo chown -R 1000:1000 data` on the host |
 | `claude is not on PATH` | image built from a broken Dockerfile | rebuild; `selftest` names the missing piece |
-| `API key` ✗ in selftest | `.env` not passed | `docker compose run` reads `.env` automatically; `docker-run.sh` uses `--env-file` |
+| `Claude auth` ✗ in selftest | `.env` not passed | `docker compose run` reads `.env` automatically; `docker-run.sh` uses `--env-file` |
 | `Claude Code too old, missing --json-schema` | image has an old CLI | `CLAUDE_CODE_VERSION=… docker compose build` |
 | every company `website not found` | no `SERPER_API_KEY` and a generic name | add Serper, or fill the `web` column via `import` |
 | `enrich` stops with `timeout 240s` | one slow site | rerun; failures are retried, cache keeps the rest free |
@@ -127,8 +127,11 @@ rebuild.
 
 ## What the container does not do
 
-- **No OAuth login.** Only `ANTHROPIC_API_KEY`. A Claude Max subscription login
-  from a laptop is not in the image and should not be copied into it.
+- **No interactive login.** Use a long-lived subscription token from
+  `claude setup-token` as `CLAUDE_CODE_OAUTH_TOKEN`, or `ANTHROPIC_API_KEY`.
+  Never copy a laptop's `~/.claude` into the image. With the token, runs use the
+  plan's usage limits; `grizly-cost.jsonl` still shows the notional API cost and
+  `GRIZLY_BUDGET` still caps each company.
 - **No Google Sheets / Raynet push.** Output is CSV on the volume; import it
   wherever it belongs.
 - **No scheduler of its own.** Cron or Coolify starts it; it never loops.
