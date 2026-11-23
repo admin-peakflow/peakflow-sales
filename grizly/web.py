@@ -65,6 +65,10 @@ DIRECTORY_HOSTS = (
     "justice.cz", "ares.gov", "firmy.cz", "mapy.cz", "kurzy.cz", "proff.no", "brreg.no",
     "gulesider", "purehelp", "societe.com", "pappers", "infogreffe", "annuaire-entreprises",
     "verif.com", "companieshouse", "yelp", "kompass", "dnb.com", "opencorporates", "northdata",
+    # Czech registry mirrors and job boards that Google ranks for company names
+    "finmag.cz", "chytryrejstrik", "fakturujzdarma", "dostartu", "jenprace", "rejstrik",
+    "podnikatel.cz", "infobel", "zivefirmy", "najisto", "obchodni-rejstrik", "seznam.cz",
+    "hlidacstatu", "detail.cz", "imon.cz", "edb.cz", "merk.cz", "cylex", "zlatestranky",
 )
 COUNTRY_TLDS: dict[str, tuple[str, ...]] = {
     "CZ": ("cz", "com", "eu"), "SK": ("sk", "com", "eu"), "NO": ("no", "com"),
@@ -204,11 +208,12 @@ def looks_like_company_page(html: str, name: str) -> bool:
     return sum(t in text for t in tokens) >= min(2, len(tokens))
 
 
-def serper(name: str, city: str, country: str, language: str) -> str | None:
-    """Optional Google search via Serper.dev (free tier). Needs SERPER_API_KEY."""
+def serper(name: str, city: str, country: str, language: str) -> list[str]:
+    """Optional Google search via Serper.dev (free tier). Needs SERPER_API_KEY.
+    Non-directory result sites, name-like domains first."""
     key = os.environ.get("SERPER_API_KEY")
     if not key:
-        return None
+        return []
     body = json.dumps({"q": f"{name} {city}".strip(), "gl": country.lower() or "us",
                        "hl": language}).encode()
     req = urllib.request.Request("https://google.serper.dev/search", data=body,
@@ -217,28 +222,43 @@ def serper(name: str, city: str, country: str, language: str) -> str | None:
         with urllib.request.urlopen(req, timeout=20) as r:
             data = json.loads(r.read())
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError):
-        return None
-    tokens = name_tokens(name, 5)
+        return []
     hits: list[str] = []
     for item in (data.get("organic") or [])[:8]:
         host = urllib.parse.urlparse(str(item.get("link") or "")).netloc.lower()
-        if not host or any(s in host for s in DIRECTORY_HOSTS):
+        if not host or any(s in host for s in DIRECTORY_HOSTS) or host in hits:
             continue
-        if any(t in fold(host.replace("-", "").replace(".", "")) for t in tokens):
-            hits.append(host)
-    if not hits:
-        return None
-    national = f".{tlds_for(country)[0]}"
-    hits.sort(key=lambda h: not h.endswith(national))  # stable: national domain first
-    return f"https://{hits[0]}"
+        hits.append(host)
+    # The domain need not contain the name (lesamh.cz, a brand, a shortening): the
+    # site audit decides. Name-like domains go first; the rest stay in Google order.
+    hits.sort(key=lambda h: not domain_matches_name(h, name))
+    return [f"https://{h}" for h in hits]
+
+
+def domain_matches_name(url_or_host: str, name: str) -> bool:
+    """Loose: the domain contains a 4+ letter name word, all name words joined
+    (`LESA - MH` -> lesamh), or is a 4+ letter shortening of them (`danlux` ->
+    DANLUX s.r.o., `holik` -> Holík International)."""
+    host = urllib.parse.urlparse(url_or_host).netloc or url_or_host
+    host = re.sub(r"^www\.", "", host.lower()).rsplit(".", 1)[0]
+    compact = fold(host).replace("-", "").replace(".", "")
+    core = NAME_NOISE.sub(" ", fold(name.lower()).replace(".", " ").replace(",", " "))
+    tokens = re.findall(r"[a-z0-9]+", core) or name_tokens(name, 1)
+    joined = "".join(tokens)
+    if not compact or not joined:
+        return False
+    return (any(len(t) >= 4 and t in compact for t in tokens) or joined in compact
+            or (len(compact) >= 4 and joined.startswith(compact)))
 
 
 def website_candidates(fetcher: Fetcher, name: str, city: str, country: str,
                        limit: int = 3) -> list[str]:
-    """Sites that pass the cheap name check, best first. The audit decides later."""
+    """Candidate sites, best first. Search hits are not name-filtered — the audit
+    decides (see `pipeline.find_verified_site`); guessed domains must pass the name check."""
     out: list[str] = []
-    found = serper(name, city, country, fetcher.language)
-    if found:
+    for found in serper(name, city, country, fetcher.language):
+        if len(out) >= limit:
+            break
         out.append(normalize_base(found))
     for candidate in candidate_domains(name, tlds_for(country))[:12]:
         if len(out) >= limit:

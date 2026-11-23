@@ -319,6 +319,9 @@ def find_verified_site(ctx: Context, row: dict[str, str], fetcher: web.Fetcher,
         if not pages:
             rejected.append(f"{base}: no text")
             continue
+        # A search hit whose domain does not look like the name must print the
+        # registry id: free to check, and it keeps the paid audit off random hits.
+        id_only = not given and not web.domain_matches_name(base, str(row.get("name") or ""))
         if given and prior in verify.VERIFIED:
             check = verify.SiteCheck(prior, row.get("web_check_evidence", ""),
                                      row.get("web_check_reason", ""))
@@ -327,7 +330,11 @@ def find_verified_site(ctx: Context, row: dict[str, str], fetcher: web.Fetcher,
                 row, base, chrome, id_label=id_label,
                 language_name=ctx.profile.language_name(str(row.get("country") or "")),
                 cache_dir=ctx.cache_dir, model=opt.verify_model, budget=opt.verify_budget,
-                use_model=not opt.dry_run)
+                use_model=not opt.dry_run and not id_only)
+            if id_only and not check.ok:
+                rejected.append(f"{base}: {id_label} not on the site")
+                last = last or "unsure"
+                continue
             if check.cost_usd and not check.cached:
                 spent += check.cost_usd
                 log_cost(ctx.log_file, row, check.cost_usd, 0.0, f"verify {base}: {check.status}")

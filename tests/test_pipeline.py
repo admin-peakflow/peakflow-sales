@@ -188,6 +188,32 @@ class SiteAudit(Pipeline):
         self.assertEqual(r["web_check"], "id")
         self.assertEqual(self.calls, 1)
 
+    def test_unnamed_search_hit_needs_the_id_on_the_site(self) -> None:
+        """brand-x.no does not look like "Acme 0 AS": no paid audit, only the free id check."""
+        self.set_web("")
+        with mock.patch("grizly.web.website_candidates", return_value=["https://brand-x.no"]):
+            r = self.run_enrich(limit=1)[0]
+        self.assertEqual((self.verify_calls, self.calls), (0, 0))
+        self.assertEqual(r["web"], "")
+
+        rows, header = csvio.read_rows(self.src, self.ctx.profile)
+        rows[0]["company_id"] = "000000000"
+        csvio.write_rows(self.src, rows, header, self.ctx.profile)
+        with_id = {"https://acme.no/": PAGES["https://acme.no/"] + " Org.nr. 0 00 000 000"}
+
+        def gather(_f: Any, base: str, max_pages: int = 6,
+                   chrome: dict[str, str] | None = None) -> dict[str, str]:
+            if chrome is not None:
+                chrome.update(with_id)
+            return dict(PAGES)
+
+        with mock.patch("grizly.web.website_candidates", return_value=["https://brand-x.no"]), \
+                mock.patch("grizly.web.gather_site", side_effect=gather):
+            r = self.run_enrich(limit=1, force=True)[0]
+        self.assertEqual(r["web"], "https://brand-x.no")
+        self.assertEqual(r["web_check"], "id")
+        self.assertEqual(self.verify_calls, 0)
+
     def test_registry_website_is_trusted(self) -> None:
         self.set_web("https://acme.no", "registry")
         self.run_enrich(limit=1)

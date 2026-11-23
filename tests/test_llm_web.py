@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from grizly import llm, web
@@ -48,6 +49,26 @@ class Schema(unittest.TestCase):
 
 
 class Web(unittest.TestCase):
+    def test_domain_matches_name_loosely(self) -> None:
+        m = web.domain_matches_name
+        self.assertTrue(m("https://www.lesamh.cz", "LESA - MH, s.r.o."))
+        self.assertTrue(m("danlux.cz", "DANLUX s.r.o."))
+        self.assertTrue(m("https://holik.com", "Holík International s.r.o."))
+        self.assertTrue(m("https://cykloworld.eu", "CYKLO WORLD a.s."))
+        self.assertFalse(m("https://argus.cz", "LESA - MH, s.r.o."))
+
+    def test_serper_keeps_unnamed_hits_and_drops_directories(self) -> None:
+        data = {"organic": [{"link": "https://rejstrik-firem.kurzy.cz/26234670/lesa-mh-sro/"},
+                            {"link": "https://www.finmag.cz/obchodni-rejstrik/26234670"},
+                            {"link": "https://www.brand-x.cz/kontakt"},
+                            {"link": "https://www.lesamh.cz/"}]}
+        resp = mock.MagicMock()
+        resp.__enter__.return_value.read.return_value = json.dumps(data).encode()
+        with mock.patch.dict("os.environ", {"SERPER_API_KEY": "k"}), \
+                mock.patch("urllib.request.urlopen", return_value=resp):
+            hits = web.serper("LESA - MH, s.r.o.", "Mutěnice", "CZ", "cs")
+        self.assertEqual(hits, ["https://www.lesamh.cz", "https://www.brand-x.cz"])
+
     def test_candidate_domains_per_country(self) -> None:
         cz = web.candidate_domains("Holík International s.r.o.", web.tlds_for("CZ"))
         self.assertEqual(cz[0], "https://holik.cz")
