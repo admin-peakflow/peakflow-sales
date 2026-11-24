@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grizly · PeakFlow</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --ink: #16181d; --muted: #6b7280; --line: #e4e7ec;
+    --accent: #1f5eff; --ok: #12805c; --bad: #c0362c; --warn: #9a6700; --code: #0f1115;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1115; --card: #171a21; --ink: #e8eaf0; --muted: #9aa3b2; --line: #2a2f3a;
+            --accent: #6b93ff; --ok: #3cc08e; --bad: #ff6b5e; --warn: #e3b341; --code: #0a0c10; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+         background: var(--bg); color: var(--ink); }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+           padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--card); }
+  header h1 { font-size: 18px; margin: 0; }
+  header .muted { margin-right: auto; }
+  main { display: grid; gap: 16px; padding: 16px 20px; max-width: 1200px; margin: 0 auto;
+         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+            padding: 16px; min-width: 0; }
+  section.wide { grid-column: 1 / -1; }
+  h2 { font-size: 15px; margin: 0 0 12px; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 13px;
+           border: 1px solid currentColor; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); } .warn { color: var(--warn); }
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .tabs button { background: none; color: var(--ink); border: 1px solid var(--line); }
+  .tabs button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  form { display: none; }
+  form.on { display: grid; gap: 10px; }
+  label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+  label.check { display: flex; align-items: center; gap: 8px; color: var(--ink); font-size: 14px; }
+  input, select, textarea { font: inherit; color: var(--ink); background: var(--bg);
+           border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; width: 100%; }
+  input[type=checkbox] { width: auto; }
+  textarea { min-height: 70px; font-family: ui-monospace, monospace; font-size: 13px; }
+  .row { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+  .regions { display: grid; gap: 2px 12px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+  button { font: inherit; cursor: pointer; border-radius: 6px; padding: 7px 14px;
+           border: 1px solid var(--accent); background: var(--accent); color: #fff; }
+  button.ghost { background: none; color: var(--accent); }
+  button.danger { background: var(--bad); border-color: var(--bad); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .hint { font-size: 13px; color: var(--muted); margin: 0; }
+  pre { background: var(--code); color: #d7dbe3; border-radius: 8px; padding: 12px; margin: 0;
+        height: 420px; overflow: auto; font: 12.5px/1.45 ui-monospace, monospace;
+        white-space: pre-wrap; word-break: break-word; }
+  .jobbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  .jobbar .grow { margin-right: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 500; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td a { color: var(--accent); text-decoration: none; word-break: break-all; }
+  .scroll { max-height: 360px; overflow: auto; }
+  .msg { min-height: 20px; font-size: 13px; }
+  .upload { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+  .upload input[type=file] { width: auto; flex: 1; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Grizly</h1>
+  <span class="muted" id="profile">načítám…</span>
+  <span id="auth" class="badge">Claude: ?</span>
+</header>
+<main>
+  <section>
+    <h2>Spustit</h2>
+    <div class="tabs" id="tabs">
+      <button data-tab="pull" class="on">1 · Najít firmy</button>
+      <button data-tab="enrich">2 · Obohatit</button>
+      <button data-tab="selftest">Kontrola</button>
+      <button data-tab="probe">Jedna firma</button>
+      <button data-tab="classify">Přepočítat</button>
+      <button data-tab="import">Import</button>
+    </div>
+
+    <form data-action="pull" class="on">
+      <p class="hint">Stáhne firmy z registru (ARES) podle oborů a krajů. Zdarma, bez Claude.</p>
+      <label>Kraje (nic = celá ČR)</label>
+      <div class="regions" id="regions"></div>
+      <label>Obory CZ-NACE, oddělené čárkou (prázdné = podle profilu)
+        <input name="industry" placeholder="např. 46190,46690"></label>
+      <div class="row">
+        <label>Max. počet firem (0 = vše)<input name="limit" type="number" min="0" value="100"></label>
+        <label>Uložit do<input name="out" value="grizly.csv"></label>
+      </div>
+      <label class="check"><input type="checkbox" name="no_detail"> Rychle, bez detailu (bez zaměstnanců a jednatelů)</label>
+      <p class="hint">Pozor: když soubor existuje, přepíše se. Pro novou dávku zadej nový název.</p>
+      <div><button>Spustit</button></div>
+    </form>
+
+    <form data-action="enrich">
+      <p class="hint">Najde web, přečte ho a Claude vyplní kartu firmy. Běží na předplatném Claude (OAuth), čerpá jeho limity. Přerušený běh pokračuje tam, kde skončil.</p>
+      <label>Vstupní soubor<select name="input" class="csvs"></select></label>
+      <div class="row">
+        <label>Kolik firem (0 = všechny)<input name="limit" type="number" min="0" value="20"></label>
+        <label>Model<select name="model"><option>sonnet</option><option>opus</option><option>haiku</option></select></label>
+        <label>Souběžně<input name="workers" type="number" min="1" max="8" value="3"></label>
+      </div>
+      <label>Výstup (prázdné = přepsat vstup)<input name="output" placeholder=""></label>
+      <label class="check"><input type="checkbox" name="dry_run"> Jen nanečisto (najde weby, Claude nevolá)</label>
+      <div><button>Spustit</button></div>
+    </form>
+
+    <form data-action="selftest">
+      <p class="hint">Ověří Claude Code, OAuth token (jedno malé volání), registry a parser. Nic neobohacuje.</p>
+      <div><button>Spustit kontrolu</button></div>
+    </form>
+
+    <form data-action="probe">
+      <p class="hint">Jedna firma: ukáže, co Claude uvidí a co vrátí. Do CSV nic nezapisuje.</p>
+      <div class="row">
+        <label>IČO<input name="id" required></label>
+        <label>Název<input name="name" required></label>
+      </div>
+      <div class="row">
+        <label>Město<input name="city"></label>
+        <label>Web (nepovinné)<input name="web" placeholder="https://…"></label>
+      </div>
+      <label class="check"><input type="checkbox" name="dry_run"> Nanečisto (bez Claude)</label>
+      <div><button>Spustit</button></div>
+    </form>
+
+    <form data-action="classify">
+      <p class="hint">Po změně profilu přepočítá odhad, pravidla a skóre. Zdarma, bez Claude.</p>
+      <label>Soubor<select name="input" class="csvs"></select></label>
+      <div><button>Spustit</button></div>
+    </form>
+
+    <form data-action="import">
+      <p class="hint">Převede libovolné CSV (např. z veletrhu) do formátu Grizly. Soubor nejdřív nahraj dole v Souborech.</p>
+      <label>Vstupní soubor<select name="input" class="csvs"></select></label>
+      <div class="row">
+        <label>Uložit do<input name="output" value="import.csv"></label>
+        <label>Země (ISO, např. CZ)<input name="country" maxlength="2" value="CZ"></label>
+      </div>
+      <label>Mapování sloupců, jeden na řádek (sloupec_grizly=Hlavička ve tvém souboru)
+        <textarea name="maps" placeholder="name=Firma&#10;web=Website&#10;company_id=IČO"></textarea></label>
+      <div><button>Spustit</button></div>
+    </form>
+    <div class="msg" id="runmsg"></div>
+  </section>
+
+  <section>
+    <div class="jobbar">
+      <h2 class="grow" style="margin:0">Průběh</h2>
+      <span id="jobstate" class="muted">nic neběží</span>
+      <button id="stop" class="danger" disabled>Zastavit</button>
+    </div>
+    <pre id="log">Tady se ukáže výstup běžící nebo vybrané úlohy.</pre>
+    <p class="hint" id="logname"></p>
+  </section>
+
+  <section class="wide">
+    <h2>Soubory</h2>
+    <p class="hint">Na serveru jsou v <code>/data/coolify/applications/tu3vml3507hbyrbk92qqqc7h/data</code>. Hlavní výstupy: <b>grizly.csv</b> (firmy) a <b>contacts-grizly.csv</b> (kontakty).</p>
+    <div class="scroll"><table>
+      <thead><tr><th>Soubor</th><th class="num">Velikost</th><th class="num">Změněno</th></tr></thead>
+      <tbody id="files"></tbody>
+    </table></div>
+    <div class="upload">
+      <input type="file" id="upfile" accept=".csv">
+      <label class="check"><input type="checkbox" id="upover"> přepsat existující (stará verze se zazálohuje)</label>
+      <button class="ghost" id="upbtn">Nahrát CSV</button>
+      <span class="msg" id="upmsg"></span>
+    </div>
+    <p class="hint">Seznamy, které se nikdy neoslovují: nahraj <b>neoslovovat.csv</b> a <b>klienti.csv</b>.</p>
+  </section>
+
+  <section class="wide">
+    <h2>Historie běhů</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>Log</th><th class="num">Velikost</th><th class="num">Kdy</th><th></th></tr></thead>
+      <tbody id="logs"></tbody>
+    </table></div>
+  </section>
+</main>
+<script>
+"use strict";
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+let viewing = null, offset = 0, follow = true, lastJob = null;
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, { ...opts, headers: { "X-Grizly": "1", ...(opts.headers || {}) } });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const size = n => n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(0) + " kB" : (n / 1048576).toFixed(1) + " MB";
+const when = t => new Date(t * 1000).toLocaleString("cs-CZ", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" });
+const dur = s => { s = Math.round(s); const m = Math.floor(s / 60); return m ? `${m} min ${s % 60} s` : `${s} s`; };
+
+$$("#tabs button").forEach(b => b.onclick = () => {
+  $$("#tabs button").forEach(x => x.classList.toggle("on", x === b));
+  $$("form").forEach(f => f.classList.toggle("on", f.dataset.action === b.dataset.tab));
+  $("#runmsg").textContent = "";
+});
+
+$$("form").forEach(f => f.onsubmit = async e => {
+  e.preventDefault();
+  const params = {};
+  for (const el of f.elements) {
+    if (!el.name) continue;
+    params[el.name] = el.type === "checkbox" ? el.checked : el.value;
+  }
+  if (f.dataset.action === "pull") params.regions = $$("#regions input:checked").map(x => x.value);
+  if (f.dataset.action === "enrich" && !params.dry_run &&
+      !confirm(`Obohatit ${params.limit && params.limit !== "0" ? params.limit : "VŠECHNY"} firem z ${params.input}? Čerpá limity předplatného Claude.`)) return;
+  $("#runmsg").textContent = "spouštím…"; $("#runmsg").className = "msg muted";
+  try {
+    const { job } = await api("/api/run", { method: "POST", body: JSON.stringify({ action: f.dataset.action, params }) });
+    $("#runmsg").textContent = "spuštěno: grizly " + job.argv.join(" ");
+    openLog(job.log, true);
+    refresh();
+  } catch (err) { $("#runmsg").textContent = err.message; $("#runmsg").className = "msg bad"; }
+});
+
+$("#stop").onclick = async () => {
+  if (!confirm("Zastavit běžící úlohu? Co je hotové, zůstane uložené.")) return;
+  await api("/api/stop", { method: "POST" }).catch(e => alert(e.message));
+};
+
+$("#upbtn").onclick = async () => {
+  const file = $("#upfile").files[0];
+  if (!file) return;
+  $("#upmsg").textContent = "nahrávám…"; $("#upmsg").className = "msg muted";
+  try {
+    const q = `name=${encodeURIComponent(file.name)}${$("#upover").checked ? "&overwrite=1" : ""}`;
+    await api("/api/upload?" + q, { method: "POST", body: file });
+    $("#upmsg").textContent = "uloženo: " + file.name; $("#upmsg").className = "msg ok";
+    refresh();
+  } catch (err) { $("#upmsg").textContent = err.message; $("#upmsg").className = "msg bad"; }
+};
+
+function openLog(path, followIt) {
+  viewing = path; offset = 0; follow = followIt;
+  $("#log").textContent = ""; $("#logname").innerHTML = `<a href="/files/${esc(path)}">${esc(path)}</a> · stáhnout`;
+  pollLog();
+}
+async function pollLog() {
+  if (!viewing) return;
+  try {
+    const r = await api(`/api/log?path=${encodeURIComponent(viewing)}&offset=${offset}`);
+    if (r.text) {
+      const pre = $("#log"), atBottom = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 30;
+      pre.textContent += r.text;
+      if (atBottom || offset === 0) pre.scrollTop = pre.scrollHeight;
+    }
+    offset = r.offset;
+  } catch (e) { /* log not there yet */ }
+}
+
+async function refresh() {
+  let s;
+  try { s = await api("/api/state"); } catch (e) { $("#jobstate").textContent = "server neodpovídá"; return; }
+  const j = s.job;
+  if (j) {
+    const t = j.running ? s.now - j.started : j.finished - j.started;
+    $("#jobstate").innerHTML = j.running
+      ? `<span class="warn">běží</span> ${esc(j.action)} · ${dur(t)}`
+      : `${esc(j.action)} skončil · ${j.returncode === 0 ? '<span class="ok">OK</span>' : `<span class="bad">kód ${j.returncode}</span>`} · ${dur(t)}`;
+    $("#stop").disabled = !j.running;
+    if (lastJob !== j.id && j.running && !viewing) openLog(j.log, true);
+    lastJob = j.id;
+  }
+  $$("form button").forEach(b => b.disabled = !!(j && j.running));
+  const csvs = s.files.filter(f => f.path.endsWith(".csv") && !/(^|\/)contacts-/.test(f.path));
+  $$("select.csvs").forEach(sel => {
+    const cur = sel.value;
+    sel.innerHTML = csvs.map(f => `<option>${esc(f.path)}</option>`).join("");
+    if (csvs.some(f => f.path === cur)) sel.value = cur;
+    else if (csvs.some(f => f.path === "grizly.csv")) sel.value = "grizly.csv";
+  });
+  $("#files").innerHTML = s.files.map(f =>
+    `<tr><td><a href="/files/${esc(f.path)}">${esc(f.path)}</a></td><td class="num">${size(f.size)}</td><td class="num">${when(f.mtime)}</td></tr>`).join("")
+    || `<tr><td colspan="3" class="muted">zatím nic</td></tr>`;
+  $("#logs").innerHTML = s.logs.map(f =>
+    `<tr><td>${esc(f.path.replace("logs/", ""))}</td><td class="num">${size(f.size)}</td><td class="num">${when(f.mtime)}</td>
+     <td class="num"><button class="ghost" data-log="${esc(f.path)}">zobrazit</button></td></tr>`).join("")
+    || `<tr><td colspan="4" class="muted">zatím žádný běh z tohoto rozhraní</td></tr>`;
+  $$("[data-log]").forEach(b => b.onclick = () => openLog(b.dataset.log, false));
+}
+
+async function init() {
+  try {
+    const m = await api("/api/meta");
+    $("#profile").textContent = "profil " + m.profile;
+    $("#auth").textContent = "Claude: " + m.auth.text;
+    $("#auth").className = "badge " + (m.auth.ok ? "ok" : "bad");
+    $("#regions").innerHTML = Object.entries(m.regions).sort((a, b) => a[1].localeCompare(b[1], "cs"))
+      .map(([iso, name]) => `<label class="check"><input type="checkbox" value="${esc(iso)}"> ${esc(name)}</label>`).join("");
+  } catch (e) { $("#profile").textContent = e.message; }
+  await refresh();
+}
+init();
+setInterval(refresh, 3000);
+setInterval(pollLog, 1500);
+</script>
+</body>
+</html>

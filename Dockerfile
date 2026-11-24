@@ -6,9 +6,9 @@
 #   docker build -t grizly:2.0 .
 #   docker run --rm -v "$PWD/data:/app/data" --env-file .env grizly:2.0 selftest
 #
-# Claude Code authenticates from the environment: CLAUDE_CODE_OAUTH_TOKEN (a
-# subscription token from `claude setup-token`) or ANTHROPIC_API_KEY. No
-# credential is baked into the image.
+# Claude Code authenticates from the environment with CLAUDE_CODE_OAUTH_TOKEN (a
+# subscription token from `claude setup-token`); grizly never passes an API key
+# on. No credential is baked into the image.
 
 FROM node:22-bookworm-slim
 
@@ -66,6 +66,7 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 # Run from the volume: every default path in grizly is relative to the cwd.
 WORKDIR /app/data
 
+EXPOSE 8000
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 # Costs nothing, needs no network: proves the image is sane before a paid run.
 CMD ["selftest", "--offline"]

@@ -17,6 +17,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -112,38 +113,80 @@ class ClaudeResult:
     error: str | None = None
     raw: str = ""
     cached: bool = False  # answer from cache: nothing was spent in this run
+    fatal: bool = False  # auth or usage limit: every further call would fail too
+
+
+# Credentials Claude Code would pick up instead of the subscription token. Each one
+# would bill an API account (or a cloud provider), so none may reach `claude -p`.
+FOREIGN_CREDENTIALS = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_USE_BEDROCK",
+                       "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY")
+
+# Errors after which every further call fails the same way: stop the batch instead
+# of marking hundreds of companies as failed. Lower-case substrings of the message.
+FATAL_MARKERS = ("usage limit", "rate limit", "rate_limit", "limit reached", "limit will reset",
+                 "out of extra usage", "credit balance", "invalid api key", "invalid bearer",
+                 "oauth token", "authentication", "unauthorized", "401", "403 forbidden",
+                 "please run /login", "not logged in", "overloaded")
+
+_fatal_lock = threading.Lock()
+_fatal: list[str] = []
 
 
 def auth_env(base: dict[str, str] | None = None) -> dict[str, str]:
-    """Environment for `claude -p` with exactly one credential.
+    """Environment for `claude -p`: the subscription OAuth token and nothing else.
 
-    CLAUDE_CODE_OAUTH_TOKEN (a Claude subscription token from `claude setup-token`)
-    wins when set: ANTHROPIC_API_KEY is removed, because Claude Code would
-    otherwise prefer the key and bill the API account instead of the subscription.
+    Only CLAUDE_CODE_OAUTH_TOKEN (from `claude setup-token`) is used. An API key or
+    another provider switch is removed even when set, because Claude Code would
+    prefer it and bill per token instead of using the subscription.
     """
     env = dict(os.environ if base is None else base)
-    # `docker run --env-file` keeps quotes around values (compose strips them).
-    for k in ("CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY"):
-        if k in env:
-            env[k] = env[k].strip().strip("\"'")
-    if env.get("CLAUDE_CODE_OAUTH_TOKEN"):
-        env.pop("ANTHROPIC_API_KEY", None)
+    for k in FOREIGN_CREDENTIALS:
+        env.pop(k, None)
+    if "CLAUDE_CODE_OAUTH_TOKEN" in env:
+        # `docker run --env-file` keeps quotes around values (compose strips them).
+        env["CLAUDE_CODE_OAUTH_TOKEN"] = env["CLAUDE_CODE_OAUTH_TOKEN"].strip().strip("\"'")
     return env
 
 
-def auth_mode(env: dict[str, str] | None = None) -> str:
-    """'oauth', 'api_key' or '' — which credential `claude -p` will use."""
-    env = auth_env(env)
-    if env.get("CLAUDE_CODE_OAUTH_TOKEN"):
-        return "oauth"
-    return "api_key" if env.get("ANTHROPIC_API_KEY") else ""
+def oauth_token(env: dict[str, str] | None = None) -> str:
+    """The token `claude -p` will run on, or a RuntimeError saying what is wrong."""
+    token = auth_env(env).get("CLAUDE_CODE_OAUTH_TOKEN", "")
+    if not token:
+        raise RuntimeError("CLAUDE_CODE_OAUTH_TOKEN is not set (make one with "
+                           "`claude setup-token`)")
+    if not token.startswith("sk-ant-oat"):
+        raise RuntimeError("CLAUDE_CODE_OAUTH_TOKEN does not look like a token "
+                           "(expected sk-ant-oat…, make one with `claude setup-token`)")
+    return token
+
+
+def is_fatal(message: str) -> bool:
+    low = message.lower()
+    return any(m in low for m in FATAL_MARKERS)
+
+
+def fatal_error() -> str:
+    """First error that stopped all calls in this process, or ''."""
+    with _fatal_lock:
+        return _fatal[0] if _fatal else ""
+
+
+def _set_fatal(message: str) -> None:
+    with _fatal_lock:
+        if not _fatal:
+            _fatal.append(message)
+
+
+def reset_fatal() -> None:
+    with _fatal_lock:
+        _fatal.clear()
 
 
 def claude_bin() -> str:
     found = shutil.which("claude")
     if not found:
         raise RuntimeError("`claude` is not on PATH. Install: npm i -g @anthropic-ai/claude-code "
-                           "and set CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY.")
+                           "and set CLAUDE_CODE_OAUTH_TOKEN.")
     return found
 
 
@@ -193,6 +236,14 @@ def page_blob(company: dict[str, str], pages: dict[str, str], id_label: str) -> 
 def call_claude(blob: str, *, instruction: str, schema: dict[str, Any], model: str,
                 budget: float, timeout: int = 240) -> ClaudeResult:
     """One lean `claude -p` run: instruction as system prompt, page text on stdin."""
+    stopped = fatal_error()
+    if stopped:
+        return ClaudeResult(error=f"not called, batch stopped: {stopped}"[:300], fatal=True)
+    try:
+        oauth_token()
+    except RuntimeError as e:
+        _set_fatal(str(e))
+        return ClaudeResult(error=str(e), fatal=True)
     cmd = [
         claude_bin(), "-p",
         "--system-prompt", instruction,
@@ -217,13 +268,30 @@ def call_claude(blob: str, *, instruction: str, schema: dict[str, Any], model: s
         return ClaudeResult(error=f"timeout {timeout}s")
     except OSError as e:
         return ClaudeResult(error=f"claude failed to start: {e}")
-    return parse_output(proc.returncode, proc.stdout, proc.stderr)
+    res = parse_output(proc.returncode, proc.stdout, proc.stderr)
+    if res.error and is_fatal(res.error):
+        res.fatal = True
+        _set_fatal(res.error)
+    return res
+
+
+def _envelope_message(stdout: str) -> str:
+    """The readable message of a JSON envelope, instead of the raw JSON."""
+    try:
+        envelope = json.loads(stdout)
+    except json.JSONDecodeError:
+        return stdout.strip()
+    if isinstance(envelope, dict):
+        for k in ("result", "error", "message", "subtype"):
+            if envelope.get(k):
+                return str(envelope[k]).strip()
+    return stdout.strip()
 
 
 def parse_output(returncode: int, stdout: str, stderr: str) -> ClaudeResult:
     if returncode != 0:
-        msg = (stderr or stdout or "claude failed").strip()
-        return ClaudeResult(error=msg[:500], raw=stdout)
+        msg = (stderr or "").strip() or _envelope_message(stdout) or "claude failed"
+        return ClaudeResult(error=msg[:500], raw=stdout[:500])
     try:
         envelope = json.loads(stdout)
     except json.JSONDecodeError:

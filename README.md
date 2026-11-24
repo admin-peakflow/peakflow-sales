@@ -4,9 +4,14 @@ Company lead research for any seller, in any country:
 **public business registry → company website → Claude → CSV.**
 
 Standard library only (Python 3.11+). No `pip install`, no build.
-You need `claude` (Claude Code) on PATH and either a Claude subscription token
-(`CLAUDE_CODE_OAUTH_TOKEN`, from `claude setup-token`) or an `ANTHROPIC_API_KEY`
-for the paid step. Everything else is free public data.
+You need `claude` (Claude Code) on PATH and a Claude subscription token
+(`CLAUDE_CODE_OAUTH_TOKEN`, from `claude setup-token`) for the model step. That is
+the only credential: an `ANTHROPIC_API_KEY` is never passed to Claude Code, even
+if set. Everything else is free public data.
+
+Prefer a browser? `GRIZLY_UI_PASSWORD=… python3 grizly.py ui` starts a web UI on
+port 8000: run every step with a button, watch the log live, download the CSVs,
+upload input and suppression lists.
 
 Docker is optional and only there for servers where you do not want to install
 Node and Claude Code by hand: `Dockerfile`, `docker-compose.yml` and
@@ -35,7 +40,7 @@ Covering another country means adding one adapter, never touching rules.
 ## Quick start
 
 ```bash
-export CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-...   # or ANTHROPIC_API_KEY=sk-ant-...
+export CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-...   # from `claude setup-token`
 python3 grizly.py selftest                      # checks everything, costs nothing
 
 python3 grizly.py pull --region jihomoravsky --limit 100          # default profile
@@ -202,8 +207,9 @@ with 6 pages (27 000 chars) costs **~$0.07** on Sonnet, less when pages are shor
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `CLAUDE_CODE_OAUTH_TOKEN` | — | subscription token for `enrich`; wins over the API key |
-| `ANTHROPIC_API_KEY` | — | API key for `enrich`, if no OAuth token |
+| `CLAUDE_CODE_OAUTH_TOKEN` | — | subscription token for `enrich`, the only credential used |
+| `GRIZLY_UI_USER` | `peakflow` | web UI login |
+| `GRIZLY_UI_PASSWORD` | — | web UI password, required for `ui` (12+ characters) |
 | `GRIZLY_PROFILE` | `peakflow` | default profile |
 | `SERPER_API_KEY` | — | optional website search |
 | `GRIZLY_MODEL` | `sonnet` | model for `claude -p` |
@@ -245,7 +251,7 @@ For a server where Node and Claude Code should not be installed by hand. Build
 once, then run any command; all state stays in `./data`:
 
 ```bash
-cp .env.example .env                       # ANTHROPIC_API_KEY (+ optional SERPER_API_KEY)
+cp .env.example .env                       # CLAUDE_CODE_OAUTH_TOKEN (+ optional SERPER_API_KEY)
 mkdir -p data
 docker compose build
 docker compose run --rm grizly selftest    # free: claude, flags, key, registries

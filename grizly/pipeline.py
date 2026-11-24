@@ -412,9 +412,13 @@ def enrich(ctx: Context, src: Path, out: Path, opt: EnrichOptions, limit: int) -
     contacts: list[dict[str, str]] = []
     total_cost = 0.0
     ok = fail = 0
+    llm.reset_fatal()
+    stopped = ""
     with ThreadPoolExecutor(max_workers=max(1, opt.workers)) as pool:
         futures = {pool.submit(enrich_one, ctx, c, opt): c for c in todo}
         for i, fut in enumerate(as_completed(futures), 1):
+            if fut.cancelled():
+                continue
             company = futures[fut]
             try:
                 res = fut.result()
@@ -433,6 +437,14 @@ def enrich(ctx: Context, src: Path, out: Path, opt: EnrichOptions, limit: int) -
             note = str(row.get("enrich_error") or row.get("enrich_warnings") or "")
             ctx.log(f"  [{i}/{len(todo)}] {str(company.get('name', ''))[:36]:36} "
                     f"q={row.get('enrich_quality') or '-':>5} {note[:56]}")
+            if not stopped and llm.fatal_error():
+                # Token rejected or usage limit hit: every further call fails the same
+                # way. Cancel what has not started; rows left behind stay unenriched
+                # and the next run picks them up.
+                stopped = llm.fatal_error()
+                cancelled = sum(f.cancel() for f in futures)
+                ctx.log(f"\nSTOPPED: {stopped[:200]}\n  {cancelled} companies not started. "
+                        "Run the same command again later, it resumes where it stopped.\n")
             if i % 10 == 0:
                 _flush(ctx, rows, results, columns, out)
                 if contacts and not opt.dry_run:  # an interrupted run keeps them
@@ -446,6 +458,9 @@ def enrich(ctx: Context, src: Path, out: Path, opt: EnrichOptions, limit: int) -
     ctx.log(f"\ndone: {ok} enriched, {fail} failed, ${total_cost:.3f} -> {out}")
     if total_cost and (ok + fail):
         ctx.log(f"cost per company: ${total_cost / (ok + fail):.3f}")
+    if stopped:
+        ctx.log(f"STOPPED early: {stopped[:200]}")
+        return 2
     return 0
 
 

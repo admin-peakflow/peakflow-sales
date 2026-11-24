@@ -1,13 +1,12 @@
-# grizly as a one-shot job on a server (Coolify, docker compose, or plain docker).
+# grizly on a server (Coolify, docker compose, or plain docker).
 #
-#   cp .env.example .env        # fill CLAUDE_CODE_OAUTH_TOKEN (or ANTHROPIC_API_KEY)
+#   cp .env.example .env        # fill CLAUDE_CODE_OAUTH_TOKEN and GRIZLY_UI_PASSWORD
+#   docker compose up -d        # web UI on :8000 — run everything from the browser
+#
+# The service is the web UI. It starts nothing by itself: a deploy never runs a
+# paid step, a person presses the button. The terminal still works too:
 #   docker compose run --rm grizly selftest
-#   docker compose run --rm grizly pull --region jihomoravsky --limit 100
 #   docker compose run --rm grizly enrich --in grizly.csv --limit 10 --dry-run
-#   docker compose run --rm grizly enrich --in grizly.csv
-#
-# `run --rm`, not `up`: every command ends, nothing should stay running. The
-# default `up` only runs selftest, so a stray deploy cannot spend money.
 
 services:
   grizly:
@@ -16,15 +15,17 @@ services:
       args:
         CLAUDE_CODE_VERSION: ${CLAUDE_CODE_VERSION:-2.1.330}
     image: grizly:2.0
-    # A batch, not a service. Coolify and compose both respect this.
-    restart: "no"
+    # The UI is a service; the batches it starts are its child processes.
+    restart: unless-stopped
     init: true
     environment:
       # --- needed for enrich (the paid step); pull/classify/import run without ---
-      # One of the two. The OAuth token (Claude subscription, `claude setup-token`)
-      # wins when both are set; the API key is then dropped for `claude -p`.
+      # Claude subscription token (`claude setup-token`). The ONLY credential:
+      # an API key is never passed to `claude -p`, even if one is set.
       CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # --- web UI login (user defaults to peakflow) ---
+      GRIZLY_UI_USER: ${GRIZLY_UI_USER:-peakflow}
+      GRIZLY_UI_PASSWORD: ${GRIZLY_UI_PASSWORD:-}
       # --- optional ---
       SERPER_API_KEY: ${SERPER_API_KEY:-}
       GRIZLY_PROFILE: ${GRIZLY_PROFILE:-peakflow}
@@ -40,9 +41,16 @@ services:
       # CSV, contacts, cache, cost log and the suppression lists survive a run.
       # The entrypoint fixes the owner once; nothing to chown by hand.
       - ./data:/app/data
-    # No healthcheck: the process is a batch that exits. `selftest` is the check.
-    stop_grace_period: 30s
-    # Batch: grizly writes progress every 10 companies, SIGTERM flushes it.
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python3", "-c",
+             "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # A redeploy stops the UI; SIGINT lets a running batch write what it has
+    # (grizly also flushes every 10 companies, and the next run resumes).
+    stop_grace_period: 60s
     stop_signal: SIGINT
-    # Default = free check. A stray deploy must not start spending money.
-    command: ["selftest", "--offline"]
+    command: ["ui", "--port", "8000"]

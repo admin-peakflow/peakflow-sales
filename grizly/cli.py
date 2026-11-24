@@ -214,20 +214,21 @@ def cmd_selftest(args: argparse.Namespace) -> int:
         return f"{proc.stdout.strip()} ({path})"
 
     def _key() -> str:
-        mode = llm.auth_mode()
-        if mode == "oauth":
-            t = os.environ["CLAUDE_CODE_OAUTH_TOKEN"]
-            if not t.startswith("sk-ant-oat"):
-                raise RuntimeError("CLAUDE_CODE_OAUTH_TOKEN does not look like a token "
-                                   "(make one with `claude setup-token`)")
-            note = ", ANTHROPIC_API_KEY ignored" if os.environ.get("ANTHROPIC_API_KEY") else ""
-            return f"OAuth subscription token ({t[:10]}…{t[-4:]}){note}"
-        if mode == "api_key":
-            k = os.environ["ANTHROPIC_API_KEY"]
-            if not k.startswith("sk-"):
-                raise RuntimeError("ANTHROPIC_API_KEY does not look like a key")
-            return f"API key ({k[:7]}…{k[-4:]})"
-        raise RuntimeError("neither CLAUDE_CODE_OAUTH_TOKEN nor ANTHROPIC_API_KEY is set")
+        t = llm.oauth_token()
+        ignored = [k for k in llm.FOREIGN_CREDENTIALS if os.environ.get(k)]
+        note = f", ignored: {', '.join(ignored)}" if ignored else ""
+        return f"OAuth subscription token ({t[:10]}…{t[-4:]}){note}"
+
+    def _login() -> str:
+        """One tiny call: proves the token is accepted, not just present."""
+        res = llm.call_claude("ping", instruction="Answer with ok=true.",
+                              schema={"type": "object", "additionalProperties": False,
+                                      "required": ["ok"],
+                                      "properties": {"ok": {"type": "boolean"}}},
+                              model="haiku", budget=0.05, timeout=120)
+        if res.error:
+            raise RuntimeError(res.error[:200])
+        return "token accepted by Claude (subscription)"
 
     def _flags() -> str:
         proc = subprocess.run([llm.claude_bin(), "--help"], capture_output=True, text=True,
@@ -242,6 +243,7 @@ def cmd_selftest(args: argparse.Namespace) -> int:
         check("Claude Code", _claude)
         check("Claude Code flags", _flags)
         check("Claude auth", _key)
+        check("Claude login", _login)
         names = split_arg(args.sources) or sorted({m.source for m in p.markets.values()})
         for name in names:
             src = sources.get(name, "grizly-selftest")
@@ -273,6 +275,11 @@ def cmd_selftest(args: argparse.Namespace) -> int:
         return 0
     print("Something is missing — fix it, or `enrich` fails or spends money for nothing.")
     return 1
+
+
+def cmd_ui(args: argparse.Namespace) -> int:
+    from grizly import webui  # the CLI never needs the server
+    return webui.serve(args.host, args.port, args.profile)
 
 
 def _profile_line(p: profiles.Profile) -> str:
@@ -374,8 +381,14 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("profile", parents=[common], help="validate a profile, run its examples")
     sp.set_defaults(func=cmd_profile)
 
+    sp = sub.add_parser("ui", parents=[common],
+                        help="web UI: run commands and get files from a browser")
+    sp.add_argument("--host", default="0.0.0.0")
+    sp.add_argument("--port", type=int, default=8000)
+    sp.set_defaults(func=cmd_ui)
+
     sp = sub.add_parser("selftest", parents=[common], help="check the environment (free)")
-    sp.add_argument("--offline", action="store_true", help="skip claude, key and registries")
+    sp.add_argument("--offline", action="store_true", help="skip claude, token and registries")
     sp.add_argument("--sources", help="registries to ping (default: those in the profile)")
     sp.set_defaults(func=cmd_selftest)
     return p

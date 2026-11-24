@@ -8,7 +8,7 @@
 #   ./docker-run.sh --shell            # interactive shell inside the image
 #
 # Data lives in ./data on the host (CSV, cache, cost log, suppression lists).
-# CLAUDE_CODE_OAUTH_TOKEN / ANTHROPIC_API_KEY are read from .env (cp .env.example .env) or from the
+# CLAUDE_CODE_OAUTH_TOKEN is read from .env (cp .env.example .env) or from the
 # environment of the shell you run this in.
 
 set -euo pipefail
@@ -39,11 +39,10 @@ fi
 env_args=()
 if [ -f "$ENV_FILE" ]; then
     env_args+=(--env-file "$ENV_FILE")
-elif [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}${ANTHROPIC_API_KEY:-}" ]; then
-    [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && env_args+=(-e CLAUDE_CODE_OAUTH_TOKEN)
-    [ -n "${ANTHROPIC_API_KEY:-}" ] && env_args+=(-e ANTHROPIC_API_KEY)
+elif [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+    env_args+=(-e CLAUDE_CODE_OAUTH_TOKEN)
 else
-    echo "note: no $ENV_FILE, no CLAUDE_CODE_OAUTH_TOKEN, no ANTHROPIC_API_KEY — only free steps will work" >&2
+    echo "note: no $ENV_FILE, no CLAUDE_CODE_OAUTH_TOKEN — only free steps will work" >&2
     echo "      cp .env.example .env   # then fill the key" >&2
 fi
 

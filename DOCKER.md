@@ -37,7 +37,7 @@ data/
 git clone git@github.com-peakflow:admin-peakflow/peakflow-sales.git grizly
 cd grizly
 cp .env.example .env
-nano .env                        # CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-… or ANTHROPIC_API_KEY  (SERPER_API_KEY recommended)
+nano .env                        # CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-…, GRIZLY_UI_PASSWORD  (SERPER_API_KEY recommended)
 
 mkdir -p data                    # no chown needed: the entrypoint fixes the owner once
 
@@ -74,22 +74,21 @@ continues; `--force` re-does finished rows.
 
 1. **New resource → Docker Compose**, repo `peakflow-sales`, compose file
    `docker-compose.yml`.
-2. **Environment variables:** `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY` (one is required), `SERPER_API_KEY`,
-   `GRIZLY_WORKERS`, `GRIZLY_BUDGET` — or paste `.env` in one block.
-3. **Persistent storage:** volume `./data → /app/data`.
-4. **Deploy** builds the image and runs the default `selftest --offline`.
-   Nothing is spent. A real step is a separate one-off run, from the Coolify
-   terminal or a server shell:
+2. **Environment variables:** `CLAUDE_CODE_OAUTH_TOKEN` (required, from
+   `claude setup-token`), `GRIZLY_UI_PASSWORD` (required), `SERPER_API_KEY`,
+   `GRIZLY_WORKERS`, `GRIZLY_BUDGET`. `ANTHROPIC_API_KEY` is not used — delete it.
+3. **Domain** for service `grizly`: e.g. `https://grizly.example.com:8000`
+   (the `:8000` tells Coolify's proxy the container port; the site itself is on 443).
+4. **Persistent storage:** volume `./data → /app/data`.
+5. **Deploy** builds the image and starts the web UI. Nothing is run or spent
+   until someone presses a button there.
 
-   ```bash
-   docker compose run --rm grizly enrich --in grizly.csv --limit 20
-   ```
+Files: everything the UI produces lives in the data volume on the host
+(`/data/coolify/applications/<uuid>/data`), downloadable from the UI's
+**Soubory** list. Each run's output is in `logs/`.
 
-   or change the resource's start command to the step you want.
-
-Coolify treats this as a job, not a service: it should finish and stay stopped.
-Do not set a healthcheck or `restart: always` — a batch that restarts itself
-spends money twice.
+A redeploy restarts the UI and interrupts a running batch (it saves progress,
+the same button resumes it). Deploy between batches.
 
 ## Plain docker, no compose
 
@@ -119,7 +118,8 @@ rebuild.
 |---|---|---|
 | `permission denied` writing `grizly.csv` | volume owned by another uid and the container cannot chown it (rootless Docker, NFS) | run the container with `--user 1000:1000` and `sudo chown -R 1000:1000 data` on the host |
 | `claude is not on PATH` | image built from a broken Dockerfile | rebuild; `selftest` names the missing piece |
-| `Claude auth` ✗ in selftest | `.env` not passed | `docker compose run` reads `.env` automatically; `docker-run.sh` uses `--env-file` |
+| `Claude auth` ✗ in selftest | `.env` not passed, or no `CLAUDE_CODE_OAUTH_TOKEN` | `docker compose run` reads `.env` automatically; `docker-run.sh` uses `--env-file` |
+| `Claude login` ✗ / `STOPPED: … usage limit` | token revoked, or the subscription's usage limit hit | new token via `claude setup-token`; for a limit wait for the reset and press the same button again, it resumes |
 | `Claude Code too old, missing --json-schema` | image has an old CLI | `CLAUDE_CODE_VERSION=… docker compose build` |
 | every company `website not found` | no `SERPER_API_KEY` and a generic name | add Serper, or fill the `web` column via `import` |
 | `enrich` stops with `timeout 240s` | one slow site | rerun; failures are retried, cache keeps the rest free |
@@ -128,7 +128,7 @@ rebuild.
 ## What the container does not do
 
 - **No interactive login.** Use a long-lived subscription token from
-  `claude setup-token` as `CLAUDE_CODE_OAUTH_TOKEN`, or `ANTHROPIC_API_KEY`.
+  `claude setup-token` as `CLAUDE_CODE_OAUTH_TOKEN`. An API key is not used.
   Never copy a laptop's `~/.claude` into the image. With the token, runs use the
   plan's usage limits; `grizly-cost.jsonl` still shows the notional API cost and
   `GRIZLY_BUDGET` still caps each company.
