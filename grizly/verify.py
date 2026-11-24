@@ -8,7 +8,7 @@ Order, cheapest first:
 2. `id`       — the company's registry id (IČO, org.nr., SIREN…) is printed on
                 the site. Czech and EU sites must show it (imprint, footer,
                 contacts), so this settles most companies without a model.
-3. model      — Opus compares registry facts with the page text and returns
+3. model      — GRIZLY_VERIFY_MODEL (sonnet) compares registry facts with the page text and returns
                 `match` / `different_company` / `unsure` with a VERBATIM quote.
                 `match` without a quote found in the text becomes `unsure`.
 
@@ -30,7 +30,7 @@ from grizly import llm
 from grizly.util import norm_space
 
 VERIFIED = frozenset({"registry", "id", "match", "manual"})
-MODEL = os.environ.get("GRIZLY_VERIFY_MODEL", "opus")
+MODEL = os.environ.get("GRIZLY_VERIFY_MODEL", "sonnet")
 BUDGET = float(os.environ.get("GRIZLY_VERIFY_BUDGET", "0.30"))
 MAX_CHARS = 14_000
 MIN_EVIDENCE = 10

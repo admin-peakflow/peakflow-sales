@@ -32,7 +32,7 @@ services:
       GRIZLY_MODEL: ${GRIZLY_MODEL:-sonnet}
       GRIZLY_WORKERS: ${GRIZLY_WORKERS:-3}
       GRIZLY_BUDGET: ${GRIZLY_BUDGET:-0.15}
-      GRIZLY_VERIFY_MODEL: ${GRIZLY_VERIFY_MODEL:-opus}
+      GRIZLY_VERIFY_MODEL: ${GRIZLY_VERIFY_MODEL:-sonnet}
       GRIZLY_VERIFY_BUDGET: ${GRIZLY_VERIFY_BUDGET:-0.30}
       # Czech dates in enriched_at / found_on
       TZ: ${TZ:-Europe/Prague}
