@@ -190,6 +190,23 @@ One row per company, key `(country, company_id)`. Contacts go to
 Files from grizly 1.x (Czech headers, `;`, BOM) are read as they are. A profile
 with `[output] columns = "cs"` writes the legacy headers back.
 
+### `export`: the files a person works with
+
+    python3 grizly.py export --data /app/data
+
+Reads every CSV under `--data` (recursively; skips `ledger/`, `grizly-cache/`,
+`logs/`, `*.before*` backups and its own outputs), counts each company once and writes:
+
+| File | What |
+|---|---|
+| `leady.csv` | successfully enriched companies with an offer, best score first, contacts inline (`telefon`, `email`, `kontakt`, `dalsi_kontakty`) |
+| `insolvence.csv` | companies in the insolvency register, never in `leady.csv` |
+| `log.txt` | appended summary per export: leads, insolvent, excluded by rule, failures by reason |
+
+Failed enrichments are not listed, only counted in `log.txt`. Insolvency comes from
+the registry (`registry_flags = insolvency`, ARES `stavZdrojeIr`); export re-checks it
+live for every lead unless `--no-registry-check`. `enrich` skips insolvent companies.
+
 ## Costs
 
 Claude Code runs lean: our instruction is the system prompt, no tools, no MCP

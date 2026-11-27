@@ -61,6 +61,10 @@ class Source(ABC):
         """Extra per-company calls (employees, officers, accounts). Default: none."""
         return {}
 
+    def registry_flags(self, company_id: str) -> list[str] | None:
+        """Re-check flags (insolvency…) for one company. None = cannot tell."""
+        return None
+
     def normalize(self, row: dict[str, str]) -> None:
         """Backfill derived columns on rows from older files or CSV imports."""
         row["country"] = row.get("country") or self.country

@@ -41,6 +41,10 @@ LEGAL_FORM_CLASSES = ("company", "sole_trader", "partnership", "cooperative", "p
 # it is the company's own legal objection to prospecting, not a sales preference.
 FLAG_OPT_OUT = "marketing_opt_out"
 TAG_DO_NOT_CONTACT = "DO_NOT_CONTACT"
+# `insolvency`: the company is in the national insolvency register. Always excluded
+# too (tag INSOLVENT) and never enriched: nobody buys automation from an insolvency.
+FLAG_INSOLVENCY = "insolvency"
+TAG_INSOLVENT = "INSOLVENT"
 
 ESTIMATE_FLAG = "estimate"
 

@@ -17,7 +17,7 @@ from typing import Any
 from grizly import VERSION, csvio, llm, rules, sources, verify, web
 from grizly.fx import FX
 from grizly.profile import Profile
-from grizly.schema import CONTACT_COLUMNS, company_columns, key
+from grizly.schema import CONTACT_COLUMNS, FLAG_INSOLVENCY, company_columns, key
 from grizly.sources.base import Query, Source
 from grizly.util import fold
 from grizly.validate import sanity_contacts, validate
@@ -397,6 +397,10 @@ def enrich(ctx: Context, src: Path, out: Path, opt: EnrichOptions, limit: int) -
             ctx.log(f"Resuming: {len(done)} companies already enriched.")
 
     todo = [r for r in rows if r.get("company_id") and key(r) not in done]
+    solvent = [r for r in todo if FLAG_INSOLVENCY not in str(r.get("registry_flags") or "")]
+    if len(solvent) < len(todo):
+        ctx.log(f"Skipping {len(todo) - len(solvent)} companies in insolvency.")
+        todo = solvent
     if limit:
         todo = todo[:limit]
     if not todo:

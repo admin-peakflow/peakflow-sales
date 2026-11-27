@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from grizly.schema import LEGAL_FORM_CLASSES, TAG_DO_NOT_CONTACT
+from grizly.schema import LEGAL_FORM_CLASSES, TAG_DO_NOT_CONTACT, TAG_INSOLVENT
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PROFILE_DIRS = (Path.cwd() / "profiles", REPO_ROOT / "profiles")
@@ -271,6 +271,7 @@ def parse(data: dict[str, Any], path: Path) -> Profile:
     exclude = {str(t) for t in rules.get("exclude_tags") or []}
     exclude |= {s.tag for s in suppression}
     exclude.add(TAG_DO_NOT_CONTACT)
+    exclude.add(TAG_INSOLVENT)
 
     points: list[tuple[int, Cond]] = []
     for i, p in enumerate(_list(scoring, "points", where)):

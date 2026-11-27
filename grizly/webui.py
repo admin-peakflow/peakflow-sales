@@ -40,7 +40,7 @@ from grizly import profile as profiles
 
 ENTRY = Path(__file__).resolve().parent.parent / "grizly.py"
 LOG_DIR = "logs"
-HIDDEN = {"grizly-cache", LOG_DIR}          # not listed as data files
+HIDDEN = {"grizly-cache", LOG_DIR, "_archiv", "ledger"}   # not listed as data files
 MAX_UPLOAD = 50 * 1024 * 1024
 # a file name, optionally one folder deep: run-1300/chunk-06.csv
 REL_PATH = re.compile(r"^(?:[\w.-]+/)?[\w.-]+$")

@@ -18,6 +18,10 @@ Verified against production (2026-11-22), not taken from docs:
 | `sidlo.kodObce` in search    | filters (Brno 46190 = 130); `kodOkresu`, `psc` do not      |
 | Liquidation                  | no field in the record; the law requires the name suffix   |
 |                              | "v likvidaci" -> skipped on the name                       |
+| Insolvency                   | `seznamRegistraci.stavZdrojeIr` = `AKTIVNI` when the firm  |
+|                              | is in the insolvency register, also in search results (1   |
+|                              | of 130 Brno 46190 firms, 2026-11-27). Kept, flagged        |
+|                              | `insolvency`; `GET /ekonomicke-subjekty/{ico}` re-checks   |
 | Several NACE in one query    | counts add up and overflow the cap -> one code per query   |
 | Employee band                | only in `/ekonomicke-subjekty-res/{ico}`, not in search    |
 | Officers                     | `/ekonomicke-subjekty-vr/{ico}`; active = no `datumVymazu` |
@@ -34,7 +38,7 @@ import time
 from collections.abc import Iterator
 from typing import Any
 
-from grizly.schema import blank_company
+from grizly.schema import FLAG_INSOLVENCY, blank_company
 from grizly.sources.base import Log, Query, Source, SourceError, person_name
 from grizly.util import age_years, fold
 
@@ -64,6 +68,10 @@ LIQUIDATION = re.compile(r"\bv\s+likvidaci\b")
 
 def in_liquidation(name: str) -> bool:
     return bool(LIQUIDATION.search(fold(name.lower())))
+
+
+def in_insolvency(rec: dict[str, Any]) -> bool:
+    return (rec.get("seznamRegistraci") or {}).get("stavZdrojeIr") == "AKTIVNI"
 
 # kategoriePoctuPracovniku (ČSÚ KATPO) -> (min, max); "000" = not stated
 KATPO: dict[str, tuple[int, int | None]] = {
@@ -207,9 +215,21 @@ class AresSource(Source):
             "legal_form_class": FORM_CLASS.get(form, "other" if form else ""),
             "founded_on": founded,
             "company_age_years": str(age) if age else "",
+            "registry_flags": FLAG_INSOLVENCY if in_insolvency(rec) else "",
             "source": self.name,
         })
         return row
+
+    def registry_flags(self, company_id: str) -> list[str] | None:
+        """Current flags from the live record (insolvency changes over time)."""
+        try:
+            rec = self.http_json(f"{ARES}/ekonomicke-subjekty/{company_id}")
+        except (SourceError, RuntimeError):
+            return None
+        time.sleep(DELAY)
+        if not rec:
+            return None
+        return [FLAG_INSOLVENCY] if in_insolvency(rec) else []
 
     def details(self, row: dict[str, str]) -> dict[str, str]:
         """Employee band (RES) + active officers (VR). Two calls per company."""

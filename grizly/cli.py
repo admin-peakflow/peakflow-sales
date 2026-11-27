@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from grizly import VERSION, csvio, llm, rules, sources, web
+from grizly import export as exporter
 from grizly import profile as profiles
 from grizly.fx import FX
 from grizly.pipeline import (
@@ -97,6 +98,16 @@ def cmd_all(args: argparse.Namespace) -> int:
                             force=args.force, no_web_search=args.no_web_search,
                             dry_run=args.dry_run)
     return cmd_enrich(ns)
+
+
+def cmd_export(args: argparse.Namespace) -> int:
+    data = Path(args.data)
+    out = Path(args.out_dir or args.data)
+    s = exporter.export(_ctx(args), data, out, check_registry=not args.no_registry_check)
+    print(f"{s.leads} leads -> {out / exporter.LEADS}")
+    print(f"{s.insolvent} in insolvency -> {out / exporter.INSOLVENT}")
+    print(f"summary appended to {out / exporter.LOG}")
+    return 0
 
 
 def cmd_probe(args: argparse.Namespace) -> int:
@@ -364,6 +375,14 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--enrich-limit", type=int, default=0, help="how many to enrich (0 = all)")
     add_enrich_opts(sp)
     sp.set_defaults(func=cmd_all)
+
+    sp = sub.add_parser("export", parents=[common],
+                        help="all CSVs in a folder -> leady.csv, insolvence.csv, log.txt (free)")
+    sp.add_argument("--data", default=".", help="folder searched recursively (default: .)")
+    sp.add_argument("--out-dir", default=None, help="default: the --data folder")
+    sp.add_argument("--no-registry-check", action="store_true",
+                    help="do not re-check insolvency in the registry (one call per lead)")
+    sp.set_defaults(func=cmd_export)
 
     sp = sub.add_parser("probe", parents=[common], help="one company, show what the model sees")
     sp.add_argument("--id", "--ico", dest="id", required=True)

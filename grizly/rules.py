@@ -18,7 +18,14 @@ from typing import Any
 from grizly import csvio
 from grizly.fx import FX
 from grizly.profile import Cond, Offer, Profile
-from grizly.schema import ESTIMATE_FLAG, FLAG_OPT_OUT, TAG_DO_NOT_CONTACT, key
+from grizly.schema import (
+    ESTIMATE_FLAG,
+    FLAG_INSOLVENCY,
+    FLAG_OPT_OUT,
+    TAG_DO_NOT_CONTACT,
+    TAG_INSOLVENT,
+    key,
+)
 from grizly.util import age_years, fmt_int, norm_code, num, split_cell, tri
 
 # ------------------------------------------------------------------ revenue estimate
@@ -200,6 +207,8 @@ def classify(row: dict[str, str], profile: Profile, fx: FX,
             tags.add(t.name)
     if FLAG_OPT_OUT in f["registry_flags"]:
         tags.add(TAG_DO_NOT_CONTACT)
+    if FLAG_INSOLVENCY in f["registry_flags"]:
+        tags.add(TAG_INSOLVENT)
     if suppressor:
         tags.update(suppressor.tags_for(row))
     f["tags"] = sorted(tags)
